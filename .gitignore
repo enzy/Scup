@@ -1,0 +1,18 @@
+﻿# Java specific
+*.class
+target/*
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Netbeans ignore personal stuff
+nbproject/private/
+
+## Generic files to ignore
+*~
+*.lock
+*.DS_Store
+*.swp
+*.out
