@@ -1,6 +1,5 @@
 package cz.matejsimek.scup;
 
-import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -9,18 +8,40 @@ import java.awt.datatransfer.FlavorListener;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Formatter;
 import java.util.List;
+import java.util.Properties;
 import javax.imageio.ImageIO;
 
 public class Scup {
 
     private static Clipboard clipboard;
+    private static FileUpload fileupload;
 
-    public static void main(String[] args) throws InterruptedException {
+    // User configuration
+    private static String FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY, URL;
+
+    public static void main(String[] args) throws InterruptedException, IOException {
+	File configFile = new File("config.properties");
+	if(configFile.exists()){
+	    Properties config = new Properties();
+	    config.load(new FileInputStream(configFile));
+	    readConfiguration(config);
+	} else{
+	    System.err.println("Configuration file config.properties doesn't exist, please create one.");
+	    System.exit(1);
+	}
+
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 	clipboard.addFlavorListener(new ClipboardChangeListener());
+
+	fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
 
 	// Endless program run
 	while (true) {
@@ -28,11 +49,32 @@ public class Scup {
 	}
     }
 
-    static void processImage(Image img) {
+    static private void readConfiguration(Properties config){
+	FTP_SERVER = config.getProperty("FTP_SERVER");
+	FTP_USERNAME = config.getProperty("FTP_USERNAME", "anonymous");
+	FTP_PASSWORD = config.getProperty("FTP_PASSWORD", "");
+	FTP_DIRECTORY = config.getProperty("FTP_DIRECTORY", "");
+	URL = config.getProperty("URL");
+    }
+
+    static void processImage(BufferedImage img) {
 	System.out.println("Processing image...");
-	System.out.println("Image: " + img.getWidth(null) + "x" + img.getHeight(null));
+	System.out.println("Image: " + img.getWidth() + "x" + img.getHeight());
 	// TODO crop image
-	saveImageToFile(img);
+	File imageFile = saveImageToFile(img);
+	// Transer image to FTP
+	System.out.println("Uploading image to FTP server...");
+	if(fileupload.uploadFile(imageFile, imageFile.getName())){
+	    System.out.println("Upload done");
+	} else{
+	    System.err.println("Upload failed");
+	}
+	// Generate URL
+	String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
+	System.out.println(url);
+	// Copy URL to clipboard
+
+	// Notify me about it
     }
 
     static void processFiles(List<File> files) {
@@ -40,6 +82,7 @@ public class Scup {
 	for (int i = 0; i < files.size(); i++) {
 	    System.out.println("File " + i + ": " + files.get(i).getName());
 	}
+	System.err.println("Not supported feature yet, stay tuned!");
     }
 
     static class ClipboardChangeListener implements FlavorListener {
@@ -50,18 +93,23 @@ public class Scup {
 
 	    try {
 		if (clipboard.isDataFlavorAvailable(DataFlavor.imageFlavor)) {
-		    Image image = (Image) clipboard.getData(DataFlavor.imageFlavor);
+		    BufferedImage image = (BufferedImage) clipboard.getData(DataFlavor.imageFlavor);
 		    clearClipboard();
 		    Scup.processImage(image);
+		    // Clear all possible references to save memory
+		    image.flush();
+		    image = null;
 		}
 		if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
 		    List<File> files = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
 		    clearClipboard();
 		    Scup.processFiles(files);
+		    // Clear all possible references to save memory
+		    files = null;
 		}
-	    } catch(NullPointerException npe){
+	    } catch (NullPointerException npe) {
 		// Clipboard content is null
-	    } catch(IllegalStateException ise){
+	    } catch (IllegalStateException ise) {
 		// Clipboard is unavailable
 	    } catch (UnsupportedFlavorException ufe) {
 		// Cliboard content is unsupported
@@ -69,6 +117,9 @@ public class Scup {
 		// Clipboard content is unreadable
 		ioe.printStackTrace();
 	    }
+
+	    // Try to remove unused resources from memory
+	    System.gc();
 	}
 
 	static void clearClipboard() {
@@ -96,17 +147,47 @@ public class Scup {
 	}
     }
 
-    static File saveImageToFile(Image img) {
+    static File saveImageToFile(BufferedImage img) {
 	try {
-	    File outputfile = new File(System.currentTimeMillis() + ".png");
-	    ImageIO.write((BufferedImage) img, "png", outputfile);
+	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	    ImageIO.write(img, "png", baos);
+	    byte[] data = baos.toByteArray();
+	    baos.close();
+	    baos = null;
+
+	    String hash = generateHash(data);
+	    data = null;
+
+	    System.out.println("Saving image: " + hash + ".png");
+	    File outputfile = new File(hash + ".png");
+	    ImageIO.write(img, "png", outputfile);
+
 	    return outputfile;
+
 	} catch (IOException ex) {
 	    System.err.println("Can't write image to file!");
 	}
 	return null;
     }
 
+    static String generateHash(byte[] data) {
+	try {
+	    MessageDigest md = MessageDigest.getInstance("SHA");
+	    md.update(data);
+
+	    Formatter formatter = new Formatter();
+	    for (byte b : md.digest()) {
+		formatter.format("%02x", b);
+	    }
+
+	    return formatter.toString();
+
+	} catch (NoSuchAlgorithmException ex) {
+	    System.err.println("Can't load digest algorithm!");
+	}
+
+	return Long.toString(System.currentTimeMillis());
+    }
 //    public void takeScreenshot() {
 //	Graphics2D imageGraphics = null;
 //	try {

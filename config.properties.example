@@ -1,0 +1,7 @@
+# FTP connection
+FTP_SERVER=ftp.example.com
+FTP_USERNAME=example
+FTP_PASSWORD=12346
+FTP_DIRECTORY=upload
+# Host
+URL=http://example.com/upload
