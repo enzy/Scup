@@ -153,6 +153,8 @@ public class Scup {
 		System.err.println("Upload failed");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
 	    }
+	    // Don't keep copy of already uploaded image
+	    imageFile.delete();
 	} else {
 	    // Copy URL to clipboard
 	    try {
@@ -246,11 +248,13 @@ public class Scup {
 	    baos.close();
 	    baos = null;
 
+	    // Calculate hash for filename and cut hash to smaller size
 	    String hash = generateHash(data);
+	    String filename = hash.substring(0, 10);
 	    data = null;
 
-	    System.out.println("Saving image: " + hash + ".png");
-	    File outputfile = new File(hash + ".png");
+	    System.out.println("Saving image: " + filename + ".png");
+	    File outputfile = new File(filename + ".png");
 	    ImageIO.write(img, "png", outputfile);
 
 	    return outputfile;
