@@ -15,7 +15,7 @@ public class FileUpload {
     private FileInputStream fis;
     private String server, username, password, remotePath;
 
-    public FileUpload() {
+    private FileUpload() {
 	client = new FTPClient();
 	sclient = new FTPSClient();
 	fis = null;
@@ -40,14 +40,14 @@ public class FileUpload {
 	    if (!FTPReply.isPositiveCompletion(reply)) {
 		client.disconnect();
 		System.err.println("FTP server refused connection.");
-		System.exit(1);
+		return false;
 	    }
 
 	    if (!client.login(username, password)) {
 		client.logout();
 		client.disconnect();
 		System.err.println("Login failed.");
-		System.exit(1);
+		return false;
 	    }
 	    System.out.print(client.getReplyString());
 	    System.out.println("Remote system is " + client.getSystemType());
@@ -64,8 +64,7 @@ public class FileUpload {
 	} catch (IOException e) {
 	    System.err.println("IOException");
 	    System.err.println(e.getLocalizedMessage());
-	    //e.printStackTrace();
-	    System.exit(1);
+	    return false;
 	} finally {
 	    try {
 		if (fis != null) {
