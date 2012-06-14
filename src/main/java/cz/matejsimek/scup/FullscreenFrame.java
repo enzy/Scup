@@ -1,0 +1,143 @@
+package cz.matejsimek.scup;
+
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.HeadlessException;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.image.BufferedImage;
+import java.util.concurrent.CountDownLatch;
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.KeyStroke;
+
+public class FullscreenFrame extends JFrame {
+
+    private CountDownLatch run;
+    private BufferedImage image;
+    int imageWidth, imageHeight;
+    private Point startPoint = new Point();
+    private Point endPoint  = new Point();
+    private Point oldPoint  = new Point();
+    private Rectangle selectedRectangle = new Rectangle();
+    private boolean isCropped = false;
+
+    public FullscreenFrame(CountDownLatch run, BufferedImage image) throws HeadlessException {
+	this.run = run;
+	this.image = image;
+	imageWidth = image.getWidth();
+	imageHeight = image.getHeight();
+
+	// Set frame parameteres
+	setAlwaysOnTop(true);
+	setUndecorated(true);
+	setExtendedState(MAXIMIZED_BOTH);
+	setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+	setBackground(Color.BLACK);
+
+	// Detect mouse events (for crop area)
+	addMouseListener(new MouseAdapter() {
+	    public void mousePressed(MouseEvent e) {
+		startPoint = endPoint = oldPoint = e.getPoint();
+		repaint();
+	    }
+
+	    public void mouseReleased(MouseEvent e) {
+		crop();
+		stop();
+	    }
+	});
+	addMouseMotionListener(new MouseMotionAdapter() {
+	    public void mouseDragged(MouseEvent e) {
+		// Move with whole rectangle with CTRL key
+		if(e.isControlDown()){
+		    int xmove = oldPoint.x - e.getPoint().x;
+		    int ymove = oldPoint.y - e.getPoint().y;
+		    startPoint.x -= xmove;
+		    startPoint.y -= ymove;
+		    endPoint.x -= xmove;
+		    endPoint.y -= ymove;
+
+		    oldPoint = e.getPoint();
+		}
+		// Move with endpoint
+		else{
+		    endPoint = e.getPoint();
+		    oldPoint = endPoint;
+		}
+		repaint();
+	    }
+	});
+
+	// Close the frame when the user presses escape
+	KeyStroke escapeKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0, false);
+	Action escapeAction = new AbstractAction() {
+	    @Override
+	    public void actionPerformed(ActionEvent e) {
+		stop();
+	    }
+	};
+	getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(escapeKeyStroke, "ESCAPE");
+	getRootPane().getActionMap().put("ESCAPE", escapeAction);
+
+	setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+    }
+
+    public BufferedImage getCroppedImage() {
+	return image;
+    }
+
+    public void paint(Graphics arg0) {
+	arg0.drawImage(image, 0, 0, this);
+
+	if (startPoint.x != endPoint.x || startPoint.y != endPoint.y) {
+	    int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
+	    int y1 = (startPoint.y < endPoint.y) ? startPoint.y : endPoint.y;
+	    int x2 = (startPoint.x > endPoint.x) ? startPoint.x : endPoint.x;
+	    int y2 = (startPoint.y > endPoint.y) ? startPoint.y : endPoint.y;
+	    selectedRectangle.x = x1;
+	    selectedRectangle.y = y1;
+	    selectedRectangle.width = (x2 - x1) + 1;
+	    selectedRectangle.height = (y2 - y1) + 1;
+	    Graphics2D g2d = (Graphics2D) arg0;
+	    g2d.draw(selectedRectangle);
+	}
+    }
+
+    public void stop() {
+	setVisible(false);
+	run.countDown();
+    }
+
+    public boolean isImageCropped(){
+	return isCropped;
+    }
+
+    public void crop() {
+	if (startPoint.equals(endPoint)) {
+	    stop();
+	}
+
+	int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
+	int y1 = (startPoint.y < endPoint.y) ? startPoint.y : endPoint.y;
+
+	int x2 = (startPoint.x > endPoint.x) ? startPoint.x : endPoint.x;
+	int y2 = (startPoint.y > endPoint.y) ? startPoint.y : endPoint.y;
+
+	int width = (x2 - x1) + 1;
+	int height = (y2 - y1) + 1;
+
+	image = image.getSubimage(x1, y1, width, height);
+
+	isCropped = true;
+    }
+}

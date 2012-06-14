@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>cz.matejsimek</groupId>
@@ -8,47 +8,59 @@
     <packaging>jar</packaging>
 
     <name>Scup</name>
-    <url>http://maven.apache.org</url>
+    <url>https://github.com/enzy/Scup</url>
+
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.2</version>
-                <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
-                </configuration>
-            </plugin>
-        </plugins>
+	<plugins>
+	    <plugin>
+		<groupId>org.apache.maven.plugins</groupId>
+		<artifactId>maven-shade-plugin</artifactId>
+		<version>1.7</version>
+		<executions>
+		    <execution>
+			<phase>package</phase>
+			<goals>
+			    <goal>shade</goal>
+			</goals>
+			<configuration>
+			    <transformers>
+				<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+				    <manifestEntries>
+					<Main-Class>cz.matejsimek.scup.Scup</Main-Class>
+					<Build-Number>0.1</Build-Number>
+				    </manifestEntries>
+				</transformer>
+
+<!--				<transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+				    <resource>src/icon.png</resource>
+				    <file>icon.png</file>
+				</transformer>-->
+
+			    </transformers>
+			</configuration>
+		    </execution>
+		</executions>
+	    </plugin>
+	</plugins>
     </build>
+
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-<!--    <repositories>
-        <repository>
-            <id>tulskiy/jkeymaster</id>
-            <url>http://tulskiy.github.com/jkeymaster/maven/</url>
-        </repository>
-    </repositories>-->
-
     <dependencies>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>3.8.1</version>
-            <scope>test</scope>
-        </dependency>
-<!--        <dependency>
-            <groupId>com.tulskiy</groupId>
-            <artifactId>jkeymaster</artifactId>
-            <version>1.0</version>
-        </dependency>-->
+	<dependency>
+	    <groupId>junit</groupId>
+	    <artifactId>junit</artifactId>
+	    <version>3.8.1</version>
+	    <scope>test</scope>
+	</dependency>
 	<dependency>
 	    <groupId>commons-net</groupId>
 	    <artifactId>commons-net</artifactId>
 	    <version>3.1</version>
 	</dependency>
     </dependencies>
+
+    <description>Simple screenshot &amp; file uploader</description>
 </project>

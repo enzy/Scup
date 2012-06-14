@@ -2,60 +2,69 @@ package cz.matejsimek.scup;
 
 import java.awt.AWTException;
 import java.awt.CheckboxMenuItem;
+import java.awt.Dimension;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.MenuItem;
+import java.awt.Point;
 import java.awt.PopupMenu;
+import java.awt.Rectangle;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.FlavorEvent;
-import java.awt.datatransfer.FlavorListener;
 import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.image.BufferedImage;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
 import javax.imageio.ImageIO;
 
 public class Scup {
 
-    private static Clipboard clipboard;
-    private static FileUpload fileupload;
-    private static SystemTray tray;
-    private static TrayIcon trayIcon;
+    public static Clipboard clipboard;
+    public static FileUpload fileupload;
+    public static SystemTray tray;
+    public static TrayIcon trayIcon;
+    public static Point virtualOrigin;
+    public static Dimension virtualSize;
     // User configuration
     private static String FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY, URL;
     // Runtime configuration
-    private static boolean isUploadEnabled = true;
+    public static boolean isUploadEnabled = true;
 
     public static void main(String[] args) throws InterruptedException, IOException {
 	File configFile = new File("config.properties");
 	if (configFile.exists()) {
 	    Properties config = new Properties();
-	    config.load(new FileInputStream(configFile));
+	    FileInputStream fis = new FileInputStream(configFile);
+	    config.load(fis);
+	    fis.close();
 	    readConfiguration(config);
 	} else {
 	    System.err.println("Configuration file config.properties doesn't exist, please create one.");
-	    System.exit(1);
+	    isUploadEnabled = false;
 	}
 
 	initTray();
+	detectVirtualDimensions();
 
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-	clipboard.addFlavorListener(new ClipboardChangeListener());
+	clipboard.addFlavorListener(new ClipboardChangeListener(clipboard, virtualSize));
 
 	fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
 
@@ -65,16 +74,36 @@ public class Scup {
 	}
     }
 
+    static private void detectVirtualDimensions() {
+	GraphicsEnvironment ge;
+	ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+	Rectangle vBounds = new Rectangle();
+	GraphicsDevice[] gdArray = ge.getScreenDevices();
+
+	for (int i = 0; i < gdArray.length; i++) {
+	    GraphicsDevice gd = gdArray[i];
+
+	    GraphicsConfiguration[] gcArray = gd.getConfigurations();
+
+	    for (int j = 0; j < gcArray.length; j++) {
+		vBounds = vBounds.union(gcArray[j].getBounds());
+	    }
+	}
+
+	virtualOrigin = vBounds.getLocation();
+	virtualSize = vBounds.getSize();
+    }
+
     static private void initTray() {
 	if (SystemTray.isSupported()) {
 	    tray = SystemTray.getSystemTray();
-	    trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("icon.png"), "Scup");
+	    trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("resources/icon.png"), "Scup v0.1");
 	    //trayIcon.setImageAutoSize(true);
 
 	    try {
 		tray.add(trayIcon);
 	    } catch (AWTException e) {
-		System.out.println("TrayIcon could not be added.");
+		System.err.println("TrayIcon could not be added.");
 		System.exit(1);
 	    }
 
@@ -125,13 +154,21 @@ public class Scup {
 	URL = config.getProperty("URL");
     }
 
-    static void processImage(BufferedImage img) {
+    static void processImage(BufferedImage img, boolean cropImage, GraphicsDevice device) {
 	System.out.println("Processing image...");
 	System.out.println("Image: " + img.getWidth() + "x" + img.getHeight());
 
-	// TODO crop image
+	if (cropImage) {
+	    img = cropImage(img, device);
+	}
+	if(img == null){
+	    System.out.println("Image is empty, canceling");
+	    return;
+	}
 
 	File imageFile = saveImageToFile(img);
+	img.flush();
+	img = null;
 
 	if (isUploadEnabled) {
 	    // Transer image to FTP
@@ -163,9 +200,38 @@ public class Scup {
 		System.err.println("Can't set clipboard, sorry!");
 	    }
 	    // Notify me about it
+	    System.out.println("Image saved " + imageFile.getAbsolutePath());
 	    trayIcon.displayMessage("Image saved", imageFile.getAbsolutePath(), TrayIcon.MessageType.INFO);
 	}
 
+	imageFile = null;
+    }
+
+    static BufferedImage cropImage(BufferedImage img, GraphicsDevice device) {
+	if (!device.isFullScreenSupported()) {
+	    System.err.println("FullScreen is not supported");
+	}
+
+	CountDownLatch framerun = new CountDownLatch(1);
+	FullscreenFrame fullscreenFrame = new FullscreenFrame(framerun, img);
+	fullscreenFrame.setVisible(true);
+	device.setFullScreenWindow(fullscreenFrame);
+
+	try {
+	    framerun.await();
+	} catch (InterruptedException ex) {
+	    ex.printStackTrace();
+	}
+
+	// When its closed, get cropped image
+	if(fullscreenFrame.isImageCropped()){
+	    img = fullscreenFrame.getCroppedImage();
+	} else{
+	    img = null;
+	}
+	fullscreenFrame.dispose();
+
+	return img;
     }
 
     static void processFiles(List<File> files) {
@@ -174,88 +240,28 @@ public class Scup {
 	    System.out.println("File " + i + ": " + files.get(i).getName());
 	}
 	System.err.println("Not supported feature yet, stay tuned!");
-
-
-    }
-
-    static class ClipboardChangeListener implements FlavorListener {
-
-	@Override
-	public void flavorsChanged(FlavorEvent e) {
-	    System.out.println("Clipboard changed " + e.getSource() + " " + e.toString());
-
-	    try {
-		if (clipboard.isDataFlavorAvailable(DataFlavor.imageFlavor)) {
-		    BufferedImage image = (BufferedImage) clipboard.getData(DataFlavor.imageFlavor);
-		    clearClipboard();
-		    Scup.processImage(image);
-		    // Clear all possible references to save memory
-		    image.flush();
-		    image = null;
-		}
-		if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
-		    List<File> files = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
-		    clearClipboard();
-		    Scup.processFiles(files);
-		    // Clear all possible references to save memory
-		    files = null;
-		}
-	    } catch (NullPointerException npe) {
-		// Clipboard content is null
-	    } catch (IllegalStateException ise) {
-		// Clipboard is unavailable
-	    } catch (UnsupportedFlavorException ufe) {
-		// Cliboard content is unsupported
-	    } catch (IOException ioe) {
-		// Clipboard content is unreadable
-		ioe.printStackTrace();
-	    }
-
-	    // Try to remove unused resources from memory
-	    System.gc();
-	}
-
-	static void clearClipboard() {
-	    System.out.println("Clearing clipboard...");
-	    try {
-		clipboard.setContents(new Transferable() {
-		    @Override
-		    public DataFlavor[] getTransferDataFlavors() {
-			return new DataFlavor[0];
-		    }
-
-		    @Override
-		    public boolean isDataFlavorSupported(DataFlavor df) {
-			return false;
-		    }
-
-		    @Override
-		    public Object getTransferData(DataFlavor df) throws UnsupportedFlavorException, IOException {
-			throw new UnsupportedOperationException("Not supported yet.");
-		    }
-		}, null);
-	    } catch (IllegalStateException e) {
-		System.err.println("Can't clear clipboard!");
-	    }
-	}
     }
 
     static File saveImageToFile(BufferedImage img) {
 	try {
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	    ImageIO.write(img, "png", baos);
-	    byte[] data = baos.toByteArray();
-	    baos.close();
-	    baos = null;
-
+	    BufferedOutputStream bos = new BufferedOutputStream(baos);
+	    ImageIO.write(img, "png", bos);
 	    // Calculate hash for filename and cut hash to smaller size
-	    String hash = generateHash(data);
+	    String hash = generateHash(baos.toByteArray());
 	    String filename = hash.substring(0, 10);
-	    data = null;
+	    // Close streams
+	    bos.flush();
+	    bos.close();
+	    baos.close();
 
+	    //
 	    System.out.println("Saving image: " + filename + ".png");
 	    File outputfile = new File(filename + ".png");
-	    ImageIO.write(img, "png", outputfile);
+	    BufferedOutputStream bos2 = new BufferedOutputStream(new FileOutputStream(outputfile));
+	    ImageIO.write(img, "png", bos2);
+	    bos2.flush();
+	    bos2.close();
 
 	    return outputfile;
 
@@ -283,21 +289,4 @@ public class Scup {
 
 	return Long.toString(System.currentTimeMillis());
     }
-//    public void takeScreenshot() {
-//	Graphics2D imageGraphics = null;
-//	try {
-//	    Robot robot = new Robot();
-//	    GraphicsDevice currentDevice = MouseInfo.getPointerInfo().getDevice();
-//	    BufferedImage exportImage = robot.createScreenCapture(currentDevice.getDefaultConfiguration().getBounds());
-//
-//	    imageGraphics = (Graphics2D) exportImage.getGraphics();
-//	    File screenshotFile = new File("./CurrentMonitorScreenshot-" + System.currentTimeMillis() + ".png");
-//	    ImageIO.write(exportImage, "png", screenshotFile);
-//	    System.out.println("Screenshot successfully captured to '" + screenshotFile.getCanonicalPath() + "'!");
-//	} catch (Exception exp) {
-//	    exp.printStackTrace();
-//	} finally {
-//	    imageGraphics.dispose();
-//	}
-//    }
 }

@@ -6,6 +6,7 @@ target/*
 *.jar
 *.war
 *.ear
+!dist/*.jar
 
 # Netbeans ignore personal stuff
 nbproject/private/
