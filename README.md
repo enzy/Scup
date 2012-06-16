@@ -1,6 +1,6 @@
-# Scup - Simple screenshot & file uploader #
+# Scup - Simple screenshot & file uploader [![Flattr this project](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=matejsimek&url=https://github.com/enzy/Scup&title=Scup&language=en_GB&tags=github&category=software&description=Scup - Simple screenshot and file uploader) 
 
-*Easily upload screenshot or files to FTP server and copy its URL address to clipboard.*
+*Easily upload screenshot or files to FTP server and copy its URL address to clipboard.* 
 
 ## Current features ##
 
