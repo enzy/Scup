@@ -5,3 +5,6 @@ FTP_PASSWORD=12346
 FTP_DIRECTORY=upload
 # Host
 URL=http://example.com/upload
+# User configuration
+UPLOAD=true
+MONITOR_ALL=true

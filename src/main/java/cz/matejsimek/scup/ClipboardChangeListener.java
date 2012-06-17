@@ -15,57 +15,95 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Clipboard listener which decide what to do with clipboard content
+ *
+ * @author Matej Simek | www.matejsimek.cz
+ */
 public class ClipboardChangeListener implements FlavorListener {
 
+    /**
+     * Data source
+     */
     private Clipboard clipboard;
+    /**
+     * Dimension of virtual desktop needed to decide from what source image is
+     */
     private Dimension virtualSize;
 
+    /**
+     *
+     * @param clipboard Data source
+     * @param virtualSize Dimension of virtual desktop needed to decide from what source image is
+     * @param monitorAll Capture images from all sources, not only printscreen
+     */
     public ClipboardChangeListener(Clipboard clipboard, Dimension virtualSize) {
 	this.clipboard = clipboard;
 	this.virtualSize = virtualSize;
     }
 
+    /**
+     * Clipboard change event handler
+     * @param e FlavorEvent
+     */
     @Override
     public void flavorsChanged(FlavorEvent e) {
 	//System.out.println("Clipboard changed " + e.getSource() + " " + e.toString());
 
 	try {
 	    if (clipboard.isDataFlavorAvailable(DataFlavor.imageFlavor)) {
+		// Image detected in clipboard, lets capture it!
 		final BufferedImage image = (BufferedImage) clipboard.getData(DataFlavor.imageFlavor);
 		final BufferedImage newImage;
 		final GraphicsDevice currentDevice = MouseInfo.getPointerInfo().getDevice();
-
+		// Needed for change detection to work
 		this.clearClipboard();
 
+		// Decide from what source is image in clipboard on its dimensions
 		if (image.getWidth() < virtualSize.width || image.getHeight() < virtualSize.height) {
-		    System.out.println("Custom image in clipboard");
-
-		    Thread t = new Thread(new Runnable() {
-			@Override
-			public void run() {
-			    Scup.processImage(image, false, currentDevice);
-			    image.flush();
-			    System.gc();
-			}
-		    });
-		    t.start();
+		    // Custom source
+		    if (Scup.MONITOR_ALL) {
+			// Current thread is EDT, start another for image processing
+			Thread t = new Thread(new Runnable() {
+			    @Override
+			    public void run() {
+				Scup.processImage(image, false, currentDevice);
+				// Try to release all image resources
+				image.getGraphics().dispose();
+				image.flush();
+				System.gc();
+			    }
+			});
+			t.start();
+		    } else {
+			// Try to release all image resources
+			image.getGraphics().dispose();
+			image.flush();
+			System.gc();
+		    }
 		} else {
+		    // Full print screen in clipboard, make screen again but only for active device
 		    Robot robot = new Robot();
 		    newImage = robot.createScreenCapture(currentDevice.getDefaultConfiguration().getBounds());
+		    // Current thread is EDT, start another for image processing
 		    Thread t = new Thread(new Runnable() {
 			@Override
 			public void run() {
 			    Scup.processImage(newImage, true, currentDevice);
+			    // Try to release all image resources
+			    newImage.getGraphics().dispose();
 			    newImage.flush();
 			    System.gc();
 			}
 		    });
 		    t.start();
+		    // Try to release all image resources
 		    image.flush();
 		}
 
 	    }
 	    if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
+		// Files detected in clipboard, lets capture them!
 		List<File> files = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
 		this.clearClipboard();
 		Scup.processFiles(files);
@@ -79,6 +117,9 @@ public class ClipboardChangeListener implements FlavorListener {
 	System.gc();
     }
 
+    /**
+     * Strong clipboard cleaning needed for change detection to work, otherwise flavorsChanged is not called
+     */
     public void clearClipboard() {
 	System.out.println("Clearing clipboard...");
 	try {
@@ -100,6 +141,10 @@ public class ClipboardChangeListener implements FlavorListener {
 	    }, null);
 	} catch (IllegalStateException e) {
 	    System.err.println("Can't clear clipboard!");
+	    try {
+		Thread.sleep(10);
+	    } catch (InterruptedException ex1) {
+	    }
 	    clearClipboard();
 	}
     }

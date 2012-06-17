@@ -4,7 +4,6 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.HeadlessException;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -20,29 +19,40 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.KeyStroke;
 
+/**
+ * Display given image and crop it to user selected area (by mouse drag)
+ *
+ * @author Matej Simek | www.matejsimek.cz
+ */
 public class FullscreenFrame extends JFrame {
 
     private CountDownLatch run;
     private BufferedImage image;
-    int imageWidth, imageHeight;
+    private int imageWidth, imageHeight;
     private Point startPoint = new Point();
-    private Point endPoint  = new Point();
-    private Point oldPoint  = new Point();
+    private Point endPoint = new Point();
+    private Point oldPoint = new Point();
     private Rectangle selectedRectangle = new Rectangle();
+    private Rectangle areaRectangle;
     private boolean isCropped = false;
 
-    public FullscreenFrame(CountDownLatch run, BufferedImage image) throws HeadlessException {
+    /**
+     * Initialize frame
+     * @param run for block calling Thread until frame is finished
+     * @param image image to display and crop
+     */
+    public FullscreenFrame(CountDownLatch run, BufferedImage image) {
 	this.run = run;
 	this.image = image;
 	imageWidth = image.getWidth();
 	imageHeight = image.getHeight();
+	areaRectangle = new Rectangle(0, 0, imageWidth - 1, imageHeight - 1);
 
 	// Set frame parameteres
 	setAlwaysOnTop(true);
 	setUndecorated(true);
 	setExtendedState(MAXIMIZED_BOTH);
 	setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-	setBackground(Color.BLACK);
 
 	// Detect mouse events (for crop area)
 	addMouseListener(new MouseAdapter() {
@@ -53,13 +63,13 @@ public class FullscreenFrame extends JFrame {
 
 	    public void mouseReleased(MouseEvent e) {
 		crop();
-		stop();
+		setVisible(false);
 	    }
 	});
 	addMouseMotionListener(new MouseMotionAdapter() {
 	    public void mouseDragged(MouseEvent e) {
 		// Move with whole rectangle with CTRL key
-		if(e.isControlDown()){
+		if (e.isControlDown()) {
 		    int xmove = oldPoint.x - e.getPoint().x;
 		    int ymove = oldPoint.y - e.getPoint().y;
 		    startPoint.x -= xmove;
@@ -68,9 +78,8 @@ public class FullscreenFrame extends JFrame {
 		    endPoint.y -= ymove;
 
 		    oldPoint = e.getPoint();
-		}
-		// Move with endpoint
-		else{
+		} // Move with endpoint
+		else {
 		    endPoint = e.getPoint();
 		    oldPoint = endPoint;
 		}
@@ -83,21 +92,32 @@ public class FullscreenFrame extends JFrame {
 	Action escapeAction = new AbstractAction() {
 	    @Override
 	    public void actionPerformed(ActionEvent e) {
-		stop();
+		setVisible(false);
 	    }
 	};
 	getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(escapeKeyStroke, "ESCAPE");
 	getRootPane().getActionMap().put("ESCAPE", escapeAction);
 
-	setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+	setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
     }
 
+    /**
+     *
+     * @return cropped or original image
+     */
     public BufferedImage getCroppedImage() {
 	return image;
     }
 
-    public void paint(Graphics arg0) {
-	arg0.drawImage(image, 0, 0, this);
+    /**
+     * Paint image, yellow window border and user selected area
+     * @param g Graphics
+     */
+    @Override
+    public void paint(Graphics g) {
+	Graphics2D g2d = (Graphics2D) g;
+
+	g2d.drawImage(image, null, 0, 0);
 
 	if (startPoint.x != endPoint.x || startPoint.y != endPoint.y) {
 	    int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
@@ -108,23 +128,41 @@ public class FullscreenFrame extends JFrame {
 	    selectedRectangle.y = y1;
 	    selectedRectangle.width = (x2 - x1) + 1;
 	    selectedRectangle.height = (y2 - y1) + 1;
-	    Graphics2D g2d = (Graphics2D) arg0;
 	    g2d.draw(selectedRectangle);
+	}
+
+	g2d.setColor(Color.YELLOW);
+	g2d.draw(areaRectangle);
+    }
+
+    /**
+     * Behavior like <code>{@link JFrame}.setVisible(boolean b)</code>, but with onhide CountDownLatch release
+     *
+     * @param b if false unblock CountDownLatch and hide itself
+     */
+    @Override
+    public void setVisible(boolean b) {
+	super.setVisible(b);
+
+	if(!b){
+	    run.countDown();
 	}
     }
 
-    public void stop() {
-	setVisible(false);
-	run.countDown();
-    }
-
-    public boolean isImageCropped(){
+    /**
+     *
+     * @return true if user already cropped image
+     */
+    public boolean isImageCropped() {
 	return isCropped;
     }
 
+    /**
+     * Crop image from startPoint to endPoint and set flag isCropped
+     */
     public void crop() {
 	if (startPoint.equals(endPoint)) {
-	    stop();
+	    setVisible(false);
 	}
 
 	int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;

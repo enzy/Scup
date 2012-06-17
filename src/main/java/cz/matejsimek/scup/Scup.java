@@ -24,6 +24,7 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
@@ -34,46 +35,62 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import javax.imageio.ImageIO;
 
+/**
+ * Scup - Simple screenshot & file uploader <p>Easily upload screenshot or files
+ * to FTP server and copy its URL address to clipboard.
+ *
+ * @author Matej Simek | www.matejsimek.cz
+ */
 public class Scup {
 
     public static Clipboard clipboard;
-    public static FileUpload fileupload;
-    public static SystemTray tray;
     public static TrayIcon trayIcon;
     public static Point virtualOrigin;
     public static Dimension virtualSize;
     // User configuration
+    private static Properties config;
+    private static boolean configError = false;
+    /**
+     * FTP configuration variables
+     */
     private static String FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY, URL;
-    // Runtime configuration
-    public static boolean isUploadEnabled = true;
+    /**
+     * Flag which enable upload to FTP server
+     */
+    public static boolean UPLOAD = false;
+    /**
+     * Flag which enable capture images from all sources, not only printscreen
+     */
+    public static boolean MONITOR_ALL = true;
 
-    public static void main(String[] args) throws InterruptedException, IOException {
-	File configFile = new File("config.properties");
-	if (configFile.exists()) {
-	    Properties config = new Properties();
-	    FileInputStream fis = new FileInputStream(configFile);
-	    config.load(fis);
-	    fis.close();
-	    readConfiguration(config);
-	} else {
-	    System.err.println("Configuration file config.properties doesn't exist, please create one.");
-	    isUploadEnabled = false;
-	}
-
+    /**
+     * Startup initialization, then endless Thread sleep
+     *
+     * @param args not used yet
+     * @throws InterruptedException
+     */
+    public static void main(String[] args) throws InterruptedException {
+	// Read configuration
+	readConfiguration("config.properties");
+	// Init tray icon
 	initTray();
+	// Detect virtual space
 	detectVirtualDimensions();
-
+	// Get system clipboard and asign event handler to it
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 	clipboard.addFlavorListener(new ClipboardChangeListener(clipboard, virtualSize));
 
-	fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
-
-	// Endless program run
+	// Endless program run, events are handled in EDT thread
 	while (true) {
-	    Thread.sleep(100);
+	    Thread.sleep(Long.MAX_VALUE);
 	}
     }
 
+    /**
+     * Detect dimensions of virtual space and save them to
+     * <code>Dimension virtualSize</code> and
+     * <code>Point virtualOrigin</code>
+     */
     static private void detectVirtualDimensions() {
 	GraphicsEnvironment ge;
 	ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -94,9 +111,14 @@ public class Scup {
 	virtualSize = vBounds.getSize();
     }
 
+    /**
+     * Place app icon into system tray, build popupmenu and attach event
+     * handlers to items
+     */
     static private void initTray() {
 	if (SystemTray.isSupported()) {
-	    tray = SystemTray.getSystemTray();
+	    final SystemTray tray = SystemTray.getSystemTray();
+	    // @TODO Different trayicon sizes based on SystemTray.getTrayIconSize()
 	    trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("resources/icon.png"), "Scup v0.1");
 	    //trayIcon.setImageAutoSize(true);
 
@@ -108,26 +130,41 @@ public class Scup {
 	    }
 
 	    PopupMenu popup = new PopupMenu();
-	    final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload enabled");
+
+	    final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
+	    final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
 	    MenuItem exitItem = new MenuItem("Exit");
 	    popup.add(uploadEnabledCheckBox);
+	    popup.add(monitorAllCheckBox);
 	    popup.addSeparator();
 	    popup.add(exitItem);
 
 	    trayIcon.setPopupMenu(popup);
 
-	    uploadEnabledCheckBox.setState(isUploadEnabled);
+	    uploadEnabledCheckBox.setState(UPLOAD);
+	    uploadEnabledCheckBox.setEnabled(!configError);
+	    monitorAllCheckBox.setState(MONITOR_ALL);
 
 	    // Add listener to uploadEnabledCheckBox.
 	    uploadEnabledCheckBox.addItemListener(new ItemListener() {
 		public void itemStateChanged(ItemEvent e) {
 		    int chxbx = e.getStateChange();
 		    if (chxbx == ItemEvent.SELECTED) {
-			isUploadEnabled = true;
-			uploadEnabledCheckBox.setLabel("Upload enabled");
+			UPLOAD = true;
 		    } else {
-			isUploadEnabled = false;
-			uploadEnabledCheckBox.setLabel("Upload disabled");
+			UPLOAD = false;
+		    }
+		}
+	    });
+
+	    // Add listener to uploadEnabledCheckBox.
+	    monitorAllCheckBox.addItemListener(new ItemListener() {
+		public void itemStateChanged(ItemEvent e) {
+		    int chxbx = e.getStateChange();
+		    if (chxbx == ItemEvent.SELECTED) {
+			MONITOR_ALL = true;
+		    } else {
+			MONITOR_ALL = false;
 		    }
 		}
 	    });
@@ -146,33 +183,70 @@ public class Scup {
 	}
     }
 
-    static private void readConfiguration(Properties config) {
-	FTP_SERVER = config.getProperty("FTP_SERVER");
-	FTP_USERNAME = config.getProperty("FTP_USERNAME", "anonymous");
-	FTP_PASSWORD = config.getProperty("FTP_PASSWORD", "");
-	FTP_DIRECTORY = config.getProperty("FTP_DIRECTORY", "");
-	URL = config.getProperty("URL");
+    /**
+     * Fills class varibles:
+     * <code>FTP_SERVER, FTP_USERNAME, FTP_PASSWORD,
+     * FTP_DIRECTORY, URL, UPLOAD, MONITOR_ALL</code> <p>Sets flag
+     * <code>configError</code> in case of error
+     *
+     * @param filename to read configuration from
+     */
+    static private void readConfiguration(String filename) {
+	File configFile = new File(filename);
+
+	try {
+	    config = new Properties();
+	    FileInputStream fis = new FileInputStream(configFile);
+	    config.load(fis);
+	    fis.close();
+
+	    FTP_SERVER = config.getProperty("FTP_SERVER", "localhost");
+	    FTP_USERNAME = config.getProperty("FTP_USERNAME", "anonymous");
+	    FTP_PASSWORD = config.getProperty("FTP_PASSWORD", "");
+	    FTP_DIRECTORY = config.getProperty("FTP_DIRECTORY", "");
+	    URL = config.getProperty("URL");
+	    UPLOAD = Boolean.parseBoolean(config.getProperty("UPLOAD", "true"));
+	    MONITOR_ALL = Boolean.parseBoolean(config.getProperty("MONITOR_ALL", "true"));
+
+	} catch (FileNotFoundException nfex) {
+	    System.err.println("Configuration file config.properties doesn't exist, please create one.");
+	    UPLOAD = false;
+	    configError = true;
+	} catch (IOException ioex) {
+	    System.err.println("Can't read from configuration file!");
+	    UPLOAD = false;
+	    configError = true;
+	}
     }
 
-    static void processImage(BufferedImage img, boolean cropImage, GraphicsDevice device) {
+    /**
+     * Whole image handling process - display, crop, save on disk, transfer to FTP, copy its URL to clipboard
+     *
+     * @param image to process
+     * @param cropImage should be image cropped?
+     * @param device to display image on
+     */
+    static void processImage(BufferedImage image, boolean cropImage, GraphicsDevice device) {
 	System.out.println("Processing image...");
-	System.out.println("Image: " + img.getWidth() + "x" + img.getHeight());
+	System.out.println("Image: " + image.getWidth() + "x" + image.getHeight());
 
 	if (cropImage) {
-	    img = cropImage(img, device);
+	    image = cropImage(image, device);
 	}
-	if(img == null){
+	if (image == null) {
 	    System.out.println("Image is empty, canceling");
 	    return;
 	}
 
-	File imageFile = saveImageToFile(img);
-	img.flush();
-	img = null;
+	File imageFile = saveImageToFile(image);
+	image.flush();
+	image = null;
 
-	if (isUploadEnabled) {
+	if (UPLOAD) {
 	    // Transer image to FTP
 	    System.out.println("Uploading image to FTP server...");
+	    // FTP file upload service
+	    FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
 	    if (fileupload.uploadFile(imageFile, imageFile.getName())) {
 		System.out.println("Upload done");
 		// Generate URL
@@ -199,7 +273,7 @@ public class Scup {
 	    } catch (IllegalStateException e) {
 		System.err.println("Can't set clipboard, sorry!");
 	    }
-	    // Notify me about it
+	    // Notify user about it
 	    System.out.println("Image saved " + imageFile.getAbsolutePath());
 	    trayIcon.displayMessage("Image saved", imageFile.getAbsolutePath(), TrayIcon.MessageType.INFO);
 	}
@@ -207,15 +281,23 @@ public class Scup {
 	imageFile = null;
     }
 
-    static BufferedImage cropImage(BufferedImage img, GraphicsDevice device) {
-	if (!device.isFullScreenSupported()) {
+    /**
+     * Display image full screen and crop it by user celection
+     *
+     * @param image to crop
+     * @param device to display image on
+     * @return cropped image or null in case of crop cancel
+     */
+    static BufferedImage cropImage(BufferedImage image, GraphicsDevice device) {
+	CountDownLatch framerun = new CountDownLatch(1);
+	FullscreenFrame fullscreenFrame = new FullscreenFrame(framerun, image);
+	fullscreenFrame.setVisible(true);
+
+	if (device.isFullScreenSupported()) {
+	    device.setFullScreenWindow(fullscreenFrame);
+	} else {
 	    System.err.println("FullScreen is not supported");
 	}
-
-	CountDownLatch framerun = new CountDownLatch(1);
-	FullscreenFrame fullscreenFrame = new FullscreenFrame(framerun, img);
-	fullscreenFrame.setVisible(true);
-	device.setFullScreenWindow(fullscreenFrame);
 
 	try {
 	    framerun.await();
@@ -224,16 +306,21 @@ public class Scup {
 	}
 
 	// When its closed, get cropped image
-	if(fullscreenFrame.isImageCropped()){
-	    img = fullscreenFrame.getCroppedImage();
-	} else{
-	    img = null;
+	if (fullscreenFrame.isImageCropped()) {
+	    image = fullscreenFrame.getCroppedImage();
+	} else {
+	    image = null;
 	}
 	fullscreenFrame.dispose();
 
-	return img;
+	return image;
     }
 
+    /**
+     * @TODO, actually only prints file list
+     *
+     * @param files
+     */
     static void processFiles(List<File> files) {
 	System.out.println("Processing files...");
 	for (int i = 0; i < files.size(); i++) {
@@ -242,6 +329,12 @@ public class Scup {
 	System.err.println("Not supported feature yet, stay tuned!");
     }
 
+    /**
+     * Save image to PNG file named by its content hash into current directory
+     *
+     * @param img
+     * @return
+     */
     static File saveImageToFile(BufferedImage img) {
 	try {
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -271,6 +364,12 @@ public class Scup {
 	return null;
     }
 
+    /**
+     * Generate SHA has from given data
+     *
+     * @param data Array of bytes to calculate hash from
+     * @return SHA hash from data or currentTimeMillis in case of error
+     */
     static String generateHash(byte[] data) {
 	try {
 	    MessageDigest md = MessageDigest.getInstance("SHA");
