@@ -30,12 +30,6 @@
 					<Build-Number>0.1</Build-Number>
 				    </manifestEntries>
 				</transformer>
-
-<!--				<transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-				    <resource>src/icon.png</resource>
-				    <file>icon.png</file>
-				</transformer>-->
-
 			    </transformers>
 			</configuration>
 		    </execution>

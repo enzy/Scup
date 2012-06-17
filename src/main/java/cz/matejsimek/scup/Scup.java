@@ -118,34 +118,62 @@ public class Scup {
     static private void initTray() {
 	if (SystemTray.isSupported()) {
 	    final SystemTray tray = SystemTray.getSystemTray();
-	    // @TODO Different trayicon sizes based on SystemTray.getTrayIconSize()
-	    trayIcon = new TrayIcon(Toolkit.getDefaultToolkit().getImage("resources/icon.png"), "Scup v0.1");
-	    //trayIcon.setImageAutoSize(true);
-
+	    // Different trayicon sizes, prefer downscalling
+	    String icoVersion;
+	    int icoWidth = tray.getTrayIconSize().width;
+	    if (icoWidth <= 16) {
+		icoVersion = "";
+	    } else if (icoWidth <= 24) {
+		icoVersion = "24";
+	    } else if (icoWidth <= 32) {
+		icoVersion = "32";
+	    } else if (icoWidth <= 48) {
+		icoVersion = "48";
+	    } else if (icoWidth <= 64) {
+		icoVersion = "64";
+	    } else if (icoWidth <= 96) {
+		icoVersion = "96";
+	    } else if (icoWidth <= 128) {
+		icoVersion = "128";
+	    } else if (icoWidth <= 256){
+		icoVersion = "256";
+	    } else{
+		icoVersion = "512";
+	    }
+	    // Load tray icon
+	    try {
+		trayIcon = new TrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")), "Scup v0.1");
+		// @TODO enable trayIcon.setImageAutoSize(true); after some real test
+	    } catch (IOException ex) {
+		System.err.println("IOException: TrayIcon could not be added.");
+		System.exit(1);
+	    }
+	    // Add tray icon to system tray
 	    try {
 		tray.add(trayIcon);
 	    } catch (AWTException e) {
-		System.err.println("TrayIcon could not be added.");
+		System.err.println("AWTException: TrayIcon could not be added.");
 		System.exit(1);
 	    }
-
+	    // Build popup menu showed on trayicon right click (on Windows)
 	    PopupMenu popup = new PopupMenu();
 
 	    final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
 	    final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
 	    MenuItem exitItem = new MenuItem("Exit");
+
 	    popup.add(uploadEnabledCheckBox);
 	    popup.add(monitorAllCheckBox);
 	    popup.addSeparator();
 	    popup.add(exitItem);
-
+	    // Add popup to tray
 	    trayIcon.setPopupMenu(popup);
-
+	    // Set default flags
 	    uploadEnabledCheckBox.setState(UPLOAD);
 	    uploadEnabledCheckBox.setEnabled(!configError);
 	    monitorAllCheckBox.setState(MONITOR_ALL);
 
-	    // Add listener to uploadEnabledCheckBox.
+	    // Add listener to uploadEnabledCheckBox
 	    uploadEnabledCheckBox.addItemListener(new ItemListener() {
 		public void itemStateChanged(ItemEvent e) {
 		    int chxbx = e.getStateChange();
@@ -157,7 +185,7 @@ public class Scup {
 		}
 	    });
 
-	    // Add listener to uploadEnabledCheckBox.
+	    // Add listener to monitorAllCheckBox
 	    monitorAllCheckBox.addItemListener(new ItemListener() {
 		public void itemStateChanged(ItemEvent e) {
 		    int chxbx = e.getStateChange();
@@ -220,7 +248,8 @@ public class Scup {
     }
 
     /**
-     * Whole image handling process - display, crop, save on disk, transfer to FTP, copy its URL to clipboard
+     * Whole image handling process - display, crop, save on disk, transfer to
+     * FTP, copy its URL to clipboard
      *
      * @param image to process
      * @param cropImage should be image cropped?
