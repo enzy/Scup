@@ -1,0 +1,39 @@
+<launch4jConfig>
+  <dontWrapJar>false</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>C:\Work\Scup\dist\Scup-0.1.jar</jar>
+  <outfile>C:\Work\Scup\dist\Scup.exe</outfile>
+  <errTitle></errTitle>
+  <cmdLine></cmdLine>
+  <chdir></chdir>
+  <priority>normal</priority>
+  <downloadUrl>http://java.com/download</downloadUrl>
+  <supportUrl>https://github.com/enzy/Scup</supportUrl>
+  <customProcName>true</customProcName>
+  <stayAlive>false</stayAlive>
+  <manifest></manifest>
+  <icon>C:\Work\Scup\resources\icon.ico</icon>
+  <singleInstance>
+    <mutexName>cz.matejsimek.scup</mutexName>
+    <windowTitle>Scup already running</windowTitle>
+  </singleInstance>
+  <jre>
+    <path></path>
+    <minVersion>1.5.0</minVersion>
+    <maxVersion></maxVersion>
+    <jdkPreference>jreOnly</jdkPreference>
+    <opt>-Djava.net.preferIPv4Stack=true</opt>
+  </jre>
+  <versionInfo>
+    <fileVersion>0.1.0.0</fileVersion>
+    <txtFileVersion>0.1 alpha</txtFileVersion>
+    <fileDescription>Scup - Simple screenshot &amp; file uploader</fileDescription>
+    <copyright>Matej Simek | www.matejsimek.cz</copyright>
+    <productVersion>0.1.0.0</productVersion>
+    <txtProductVersion>0.1 alpha</txtProductVersion>
+    <productName>Scup - Simple screenshot &amp; file uploader</productName>
+    <companyName>Matej Simek | www.matejsimek.cz</companyName>
+    <internalName>Scup</internalName>
+    <originalFilename>Scup.exe</originalFilename>
+  </versionInfo>
+</launch4jConfig>
