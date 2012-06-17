@@ -23,17 +23,16 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
+import java.util.prefs.Preferences;
 import javax.imageio.ImageIO;
+import javax.swing.UIManager;
 
 /**
  * Scup - Simple screenshot & file uploader <p>Easily upload screenshot or files
@@ -47,9 +46,20 @@ public class Scup {
     public static TrayIcon trayIcon;
     public static Point virtualOrigin;
     public static Dimension virtualSize;
-    // User configuration
-    private static Properties config;
-    private static boolean configError = false;
+
+    private static Preferences prefs;
+    /**
+     * User configuration keys
+     */
+    public final static String KEY_FTP_SERVER = "FTP_SERVER";
+    public final static String KEY_FTP_USERNAME = "FTP_USERNAME";
+    public final static String KEY_FTP_PASSWORD = "FTP_PASSWORD";
+    public final static String KEY_DIRECTORY = "FTP_DIRECTORY";
+    public final static String KEY_URL = "URL";
+    public final static String KEY_UPLOAD = "UPLOAD";
+    public final static String KEY_MONITOR_ALL = "MONITOR_ALL";
+    public final static String KEY_INITIAL_SETTINGS = "INITIAL_SETTINGS";
+
     /**
      * FTP configuration variables
      */
@@ -57,11 +67,21 @@ public class Scup {
     /**
      * Flag which enable upload to FTP server
      */
-    public static boolean UPLOAD = false;
+    public static boolean UPLOAD;
     /**
      * Flag which enable capture images from all sources, not only printscreen
      */
-    public static boolean MONITOR_ALL = true;
+    public static boolean MONITOR_ALL;
+    /**
+     * Flag indicates initial settings
+     */
+    private static boolean INITIAL_SETTINGS;
+
+    /**
+     * Tray Popup menu items
+     */
+    private static final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
+    private static final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
 
     /**
      * Startup initialization, then endless Thread sleep
@@ -70,8 +90,15 @@ public class Scup {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws InterruptedException {
+	try {
+	    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+	} catch (Exception ex) {
+	    ex.printStackTrace();
+	}
+
 	// Read configuration
-	readConfiguration("config.properties");
+	prefs = Preferences.userNodeForPackage(cz.matejsimek.scup.Scup.class);
+	readConfiguration();
 	// Init tray icon
 	initTray();
 	// Detect virtual space
@@ -79,6 +106,11 @@ public class Scup {
 	// Get system clipboard and asign event handler to it
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 	clipboard.addFlavorListener(new ClipboardChangeListener(clipboard, virtualSize));
+
+	// Show configuration form on startup until first save
+	if(INITIAL_SETTINGS){
+	    new SettingsForm().setVisible(true);
+	}
 
 	// Endless program run, events are handled in EDT thread
 	while (true) {
@@ -135,9 +167,9 @@ public class Scup {
 		icoVersion = "96";
 	    } else if (icoWidth <= 128) {
 		icoVersion = "128";
-	    } else if (icoWidth <= 256){
+	    } else if (icoWidth <= 256) {
 		icoVersion = "256";
-	    } else{
+	    } else {
 		icoVersion = "512";
 	    }
 	    // Load tray icon
@@ -158,10 +190,10 @@ public class Scup {
 	    // Build popup menu showed on trayicon right click (on Windows)
 	    PopupMenu popup = new PopupMenu();
 
-	    final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
-	    final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
 	    MenuItem exitItem = new MenuItem("Exit");
+	    MenuItem settingsItem = new MenuItem("Settings...");
 
+	    popup.add(settingsItem);
 	    popup.add(uploadEnabledCheckBox);
 	    popup.add(monitorAllCheckBox);
 	    popup.addSeparator();
@@ -170,7 +202,6 @@ public class Scup {
 	    trayIcon.setPopupMenu(popup);
 	    // Set default flags
 	    uploadEnabledCheckBox.setState(UPLOAD);
-	    uploadEnabledCheckBox.setEnabled(!configError);
 	    monitorAllCheckBox.setState(MONITOR_ALL);
 
 	    // Add listener to uploadEnabledCheckBox
@@ -182,6 +213,7 @@ public class Scup {
 		    } else {
 			UPLOAD = false;
 		    }
+		    prefs.putBoolean(KEY_UPLOAD, UPLOAD);
 		}
 	    });
 
@@ -194,6 +226,7 @@ public class Scup {
 		    } else {
 			MONITOR_ALL = false;
 		    }
+		    prefs.putBoolean(KEY_MONITOR_ALL, MONITOR_ALL);
 		}
 	    });
 
@@ -202,6 +235,13 @@ public class Scup {
 		public void actionPerformed(ActionEvent e) {
 		    tray.remove(trayIcon);
 		    System.exit(0);
+		}
+	    });
+
+	    // Add listener to settingsItem.
+	    settingsItem.addActionListener(new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+		    new SettingsForm().setVisible(true);
 		}
 	    });
 
@@ -214,37 +254,26 @@ public class Scup {
     /**
      * Fills class varibles:
      * <code>FTP_SERVER, FTP_USERNAME, FTP_PASSWORD,
-     * FTP_DIRECTORY, URL, UPLOAD, MONITOR_ALL</code> <p>Sets flag
-     * <code>configError</code> in case of error
+     * FTP_DIRECTORY, URL, UPLOAD, MONITOR_ALL</code>
      *
      * @param filename to read configuration from
      */
-    static private void readConfiguration(String filename) {
-	File configFile = new File(filename);
+    static private void readConfiguration(/*String filename*/) {
+	// Load config
+	FTP_SERVER = prefs.get(KEY_FTP_SERVER, "localhost");
+	FTP_USERNAME = prefs.get(KEY_FTP_USERNAME, "anonymous");
+	FTP_PASSWORD = prefs.get(KEY_FTP_PASSWORD, "");
+	FTP_DIRECTORY = prefs.get(KEY_DIRECTORY, "");
+	URL = prefs.get(KEY_URL, "http://localhost");
+	UPLOAD = prefs.getBoolean(KEY_UPLOAD, false);
+	MONITOR_ALL = prefs.getBoolean(KEY_MONITOR_ALL, true);
+	INITIAL_SETTINGS = prefs.getBoolean(KEY_INITIAL_SETTINGS, true);
+    }
 
-	try {
-	    config = new Properties();
-	    FileInputStream fis = new FileInputStream(configFile);
-	    config.load(fis);
-	    fis.close();
-
-	    FTP_SERVER = config.getProperty("FTP_SERVER", "localhost");
-	    FTP_USERNAME = config.getProperty("FTP_USERNAME", "anonymous");
-	    FTP_PASSWORD = config.getProperty("FTP_PASSWORD", "");
-	    FTP_DIRECTORY = config.getProperty("FTP_DIRECTORY", "");
-	    URL = config.getProperty("URL");
-	    UPLOAD = Boolean.parseBoolean(config.getProperty("UPLOAD", "true"));
-	    MONITOR_ALL = Boolean.parseBoolean(config.getProperty("MONITOR_ALL", "true"));
-
-	} catch (FileNotFoundException nfex) {
-	    System.err.println("Configuration file config.properties doesn't exist, please create one.");
-	    UPLOAD = false;
-	    configError = true;
-	} catch (IOException ioex) {
-	    System.err.println("Can't read from configuration file!");
-	    UPLOAD = false;
-	    configError = true;
-	}
+    public static void reloadConfiguration(){
+	readConfiguration();
+	uploadEnabledCheckBox.setState(UPLOAD);
+	monitorAllCheckBox.setState(MONITOR_ALL);
     }
 
     /**
