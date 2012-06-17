@@ -12,8 +12,10 @@
 
 ## How to run Scup ##
 
-* Copy `config.properties.example` as `config.properties` and edit its content with FTP connection settings
-* Run command: `java -jar Scup-0.1.jar` (builded jar is in `dist` directory) or on Windows run `scup.bat`
+* Check that you have [Java JRE installed](http://java.com/en/download/installed.jsp?detect=jre&try=1) 
+* Download [.jar or .exe from /dist directory](https://github.com/enzy/Scup/tree/master/dist)
+* On Windows simple run `Scup.exe` 
+* On other platforms run `java -jar Scup-0.1.jar`
 
 ## Known issues ##
 
