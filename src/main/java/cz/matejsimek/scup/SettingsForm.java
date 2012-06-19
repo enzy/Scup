@@ -5,7 +5,9 @@
 package cz.matejsimek.scup;
 
 import java.awt.event.ActionEvent;
+import java.io.IOException;
 import java.util.prefs.Preferences;
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
 
@@ -24,6 +26,12 @@ public class SettingsForm extends javax.swing.JFrame {
 	initComponents();
 	setLocationRelativeTo(null);
 	setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+	try {
+	    setIconImage(ImageIO.read(Scup.class.getResource("/icon.png")));
+	} catch (IOException ex) {
+	    ex.printStackTrace();
+	}
 
 	prefs = Preferences.userNodeForPackage(cz.matejsimek.scup.Scup.class);
 
@@ -68,11 +76,10 @@ public class SettingsForm extends javax.swing.JFrame {
         saveButton = new javax.swing.JButton();
         jSeparator1 = new javax.swing.JSeparator();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Scup - Settings");
         setMaximumSize(null);
         setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
-        setType(java.awt.Window.Type.UTILITY);
 
         FTPConnectionPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("FTP Connection"));
 
