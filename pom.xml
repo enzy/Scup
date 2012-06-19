@@ -4,7 +4,6 @@
 
     <groupId>cz.matejsimek</groupId>
     <artifactId>Scup</artifactId>
-    <version>0.1</version>
     <packaging>jar</packaging>
 
     <name>Scup</name>
@@ -27,7 +26,6 @@
 				<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 				    <manifestEntries>
 					<Main-Class>cz.matejsimek.scup.Scup</Main-Class>
-					<Build-Number>0.1</Build-Number>
 				    </manifestEntries>
 				</transformer>
 			    </transformers>
@@ -57,4 +55,5 @@
     </dependencies>
 
     <description>Simple screenshot &amp; file uploader</description>
+    <version>1</version>
 </project>

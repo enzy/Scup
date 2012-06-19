@@ -15,7 +15,7 @@
 * Check that you have [Java JRE installed](http://java.com/en/download/installed.jsp?detect=jre&try=1)
 * Download [.jar or .exe from /dist directory](https://github.com/enzy/Scup/tree/master/dist)
 * On Windows simple run `Scup.exe`
-* On other platforms run `java -jar Scup-0.1.jar`
+* On other platforms run `java -jar Scup-1.jar`
 
 ## Known issues ##
 

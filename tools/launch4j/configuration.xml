@@ -1,9 +1,9 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>C:\Work\Scup\dist\Scup-0.1.jar</jar>
+  <jar>C:\Work\Scup\dist\Scup-1.jar</jar>
   <outfile>C:\Work\Scup\dist\Scup.exe</outfile>
-  <errTitle></errTitle>
+  <errTitle>Scup</errTitle>
   <cmdLine></cmdLine>
   <chdir></chdir>
   <priority>normal</priority>

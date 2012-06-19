@@ -2,6 +2,7 @@ package cz.matejsimek.scup;
 
 import java.awt.AWTException;
 import java.awt.CheckboxMenuItem;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -21,10 +22,14 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Formatter;
@@ -32,6 +37,9 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
 import javax.imageio.ImageIO;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 
 /**
@@ -42,12 +50,20 @@ import javax.swing.UIManager;
  */
 public class Scup {
 
+    /**
+     * Simple new version checking with incremental number
+     */
+    final static int VERSION = 1;
+    //
     public static Clipboard clipboard;
     public static TrayIcon trayIcon;
     public static Point virtualOrigin;
     public static Dimension virtualSize;
-
     private static Preferences prefs;
+    /**
+     * 16x16 app icon
+     */
+    public static BufferedImage iconImage = null;
     /**
      * User configuration keys
      */
@@ -59,7 +75,6 @@ public class Scup {
     public final static String KEY_UPLOAD = "UPLOAD";
     public final static String KEY_MONITOR_ALL = "MONITOR_ALL";
     public final static String KEY_INITIAL_SETTINGS = "INITIAL_SETTINGS";
-
     /**
      * FTP configuration variables
      */
@@ -76,7 +91,6 @@ public class Scup {
      * Flag indicates initial settings
      */
     private static boolean INITIAL_SETTINGS;
-
     /**
      * Tray Popup menu items
      */
@@ -90,12 +104,13 @@ public class Scup {
      * @throws InterruptedException
      */
     public static void main(String[] args) throws InterruptedException {
+	// Set system windows theme and load default icon
 	try {
 	    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+	    iconImage = ImageIO.read(Scup.class.getResource("/icon.png"));
 	} catch (Exception ex) {
 	    ex.printStackTrace();
 	}
-
 	// Read configuration
 	prefs = Preferences.userNodeForPackage(cz.matejsimek.scup.Scup.class);
 	readConfiguration();
@@ -106,9 +121,10 @@ public class Scup {
 	// Get system clipboard and asign event handler to it
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 	clipboard.addFlavorListener(new ClipboardChangeListener(clipboard, virtualSize));
-
+	// Force users to download new version
+	checkForUpdates();
 	// Show configuration form on startup until first save
-	if(INITIAL_SETTINGS){
+	if (INITIAL_SETTINGS) {
 	    new SettingsForm().setVisible(true);
 	}
 
@@ -116,6 +132,55 @@ public class Scup {
 	while (true) {
 	    Thread.sleep(Long.MAX_VALUE);
 	}
+    }
+
+    /**
+     * Simple new version checking with incremental number under on url
+     */
+    static private void checkForUpdates() {
+	System.out.println("Checking for updates...");
+
+	try {
+	    final URI projectURL = new URI("https://github.com/enzy/Scup");
+	    //final URL url = new URL("http://localhost/Scup/version.txt");
+	    final URL url = new URL("https://raw.github.com/enzy/Scup/master/version.txt");
+	    BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+
+	    String inputLine = in.readLine();
+	    if (inputLine != null) {
+		int remoteVersion = Integer.parseInt(inputLine);
+		System.out.println("Found version " + remoteVersion + ", your is " + VERSION);
+
+		if (remoteVersion > VERSION) {
+		    System.out.println("New version available! Get it at: " + url);
+		    // Create option dialog
+		    JOptionPane pane = new JOptionPane("New version is available. Download it now?", JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION);
+		    JDialog dialog = pane.createDialog(new JFrame(), "Scup - Update check");
+		    dialog.setIconImage(iconImage);
+		    dialog.setAlwaysOnTop(true);
+		    dialog.setVisible(true);
+		    // Get user choice
+		    Object obj = pane.getValue();
+		    // Open browser on project page on yes and close program
+		    if (obj != null && !obj.equals(JOptionPane.UNINITIALIZED_VALUE) && (Integer) obj == 0) {
+			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+			    Desktop.getDesktop().browse(projectURL);
+			    System.exit(0);
+			}
+		    }
+		} else {
+		    System.out.println("You hava the latest version.");
+		}
+	    }
+
+	    in.close();
+
+	} catch (Exception ex) {
+	    System.err.println("Check for updates failed.");
+	    ex.printStackTrace();
+	}
+
+
     }
 
     /**
@@ -270,7 +335,7 @@ public class Scup {
 	INITIAL_SETTINGS = prefs.getBoolean(KEY_INITIAL_SETTINGS, true);
     }
 
-    public static void reloadConfiguration(){
+    public static void reloadConfiguration() {
 	readConfiguration();
 	uploadEnabledCheckBox.setState(UPLOAD);
 	monitorAllCheckBox.setState(MONITOR_ALL);

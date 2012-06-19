@@ -5,9 +5,7 @@
 package cz.matejsimek.scup;
 
 import java.awt.event.ActionEvent;
-import java.io.IOException;
 import java.util.prefs.Preferences;
-import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
 
@@ -28,8 +26,8 @@ public class SettingsForm extends javax.swing.JFrame {
 	setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
 	try {
-	    setIconImage(ImageIO.read(Scup.class.getResource("/icon.png")));
-	} catch (IOException ex) {
+	    setIconImage(Scup.iconImage);
+	} catch (Exception ex) {
 	    ex.printStackTrace();
 	}
 
