@@ -152,7 +152,7 @@ public class Scup {
 		System.out.println("Found version " + remoteVersion + ", your is " + VERSION);
 
 		if (remoteVersion > VERSION) {
-		    System.out.println("New version available! Get it at: " + url);
+		    System.out.println("New version available! Get it at: " + projectURL);
 		    // Create option dialog
 		    JOptionPane pane = new JOptionPane("New version is available. Download it now?", JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION);
 		    JDialog dialog = pane.createDialog(new JFrame(), "Scup - Update check");
@@ -169,7 +169,7 @@ public class Scup {
 			}
 		    }
 		} else {
-		    System.out.println("You hava the latest version.");
+		    System.out.println("You have the latest version.");
 		}
 	    }
 
