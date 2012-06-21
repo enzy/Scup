@@ -32,6 +32,7 @@ import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -53,7 +54,7 @@ public class Scup {
     /**
      * Simple new version checking with incremental number
      */
-    final static int VERSION = 1;
+    final static int VERSION = 2;
     //
     public static Clipboard clipboard;
     public static TrayIcon trayIcon;
@@ -64,6 +65,10 @@ public class Scup {
      * 16x16 app icon
      */
     public static BufferedImage iconImage = null;
+    /**
+     * History of latest grabs (images, files, etc.)
+     */
+    public static ArrayList<String> lastGrabs = new ArrayList<String>();
     /**
      * User configuration keys
      */
@@ -96,6 +101,7 @@ public class Scup {
      */
     private static final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
     private static final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
+    private static ActionListener trayIconActionListener = null;
 
     /**
      * Startup initialization, then endless Thread sleep
@@ -257,17 +263,26 @@ public class Scup {
 
 	    MenuItem exitItem = new MenuItem("Exit");
 	    MenuItem settingsItem = new MenuItem("Settings...");
+	    MenuItem historyItem = new MenuItem("History...");
 
 	    popup.add(settingsItem);
 	    popup.add(uploadEnabledCheckBox);
 	    popup.add(monitorAllCheckBox);
 	    popup.addSeparator();
+	    popup.add(historyItem);
 	    popup.add(exitItem);
 	    // Add popup to tray
 	    trayIcon.setPopupMenu(popup);
 	    // Set default flags
 	    uploadEnabledCheckBox.setState(UPLOAD);
 	    monitorAllCheckBox.setState(MONITOR_ALL);
+
+	    // Add listener to settingsItem.
+	    settingsItem.addActionListener(new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+		    new SettingsForm().setVisible(true);
+		}
+	    });
 
 	    // Add listener to uploadEnabledCheckBox
 	    uploadEnabledCheckBox.addItemListener(new ItemListener() {
@@ -295,6 +310,14 @@ public class Scup {
 		}
 	    });
 
+	    // Add listener to historyItem.
+	    historyItem.addActionListener(new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+		    new HistoryFrame().setVisible(true);
+		}
+	    });
+
+
 	    // Add listener to exitItem.
 	    exitItem.addActionListener(new ActionListener() {
 		public void actionPerformed(ActionEvent e) {
@@ -303,12 +326,6 @@ public class Scup {
 		}
 	    });
 
-	    // Add listener to settingsItem.
-	    settingsItem.addActionListener(new ActionListener() {
-		public void actionPerformed(ActionEvent e) {
-		    new SettingsForm().setVisible(true);
-		}
-	    });
 
 	    trayIcon.displayMessage("Scup", "I am here to serve", TrayIcon.MessageType.NONE);
 	} else {
@@ -373,7 +390,7 @@ public class Scup {
 	    if (fileupload.uploadFile(imageFile, imageFile.getName())) {
 		System.out.println("Upload done");
 		// Generate URL
-		String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
+		final String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
 		System.out.println(url);
 		// Copy URL to clipboard
 		try {
@@ -383,7 +400,19 @@ public class Scup {
 		}
 		// Notify me about it
 		trayIcon.displayMessage("Image uploaded", url, TrayIcon.MessageType.INFO);
+
+		// Display last uploaded image
+		switchTrayIconActionListenerTo(new ActionListener() {
+		    public void actionPerformed(ActionEvent e) {
+			System.out.println("Last image URL " + url);
+			trayIcon.displayMessage("Last image URL", url, TrayIcon.MessageType.INFO);
+			setClipboard(url);
+		    }
+		});
+		// Save it to history
+		lastGrabs.add(url);
 	    } else {
+		// Upload failed, it happens
 		System.err.println("Upload failed");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
 	    }
@@ -391,17 +420,56 @@ public class Scup {
 	    imageFile.delete();
 	} else {
 	    // Copy URL to clipboard
+	    final String imageAbsolutePath = imageFile.getAbsolutePath();
 	    try {
-		clipboard.setContents(new StringSelection(imageFile.getAbsolutePath()), null);
+		clipboard.setContents(new StringSelection(imageAbsolutePath), null);
 	    } catch (IllegalStateException e) {
 		System.err.println("Can't set clipboard, sorry!");
 	    }
 	    // Notify user about it
-	    System.out.println("Image saved " + imageFile.getAbsolutePath());
-	    trayIcon.displayMessage("Image saved", imageFile.getAbsolutePath(), TrayIcon.MessageType.INFO);
+	    System.out.println("Image saved " + imageAbsolutePath);
+	    trayIcon.displayMessage("Image saved", imageAbsolutePath, TrayIcon.MessageType.INFO);
+
+	    // Display last uploaded image
+	    switchTrayIconActionListenerTo(new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+		    System.out.println("Last image path " + imageAbsolutePath);
+		    trayIcon.displayMessage("Last image path", imageAbsolutePath, TrayIcon.MessageType.INFO);
+		    setClipboard(imageAbsolutePath);
+		}
+	    });
+
+	    // Save it to history
+	    lastGrabs.add(imageAbsolutePath);
 	}
 
 	imageFile = null;
+    }
+
+    /**
+     * Copy given String to system clipboard (could fail)
+     *
+     * @param str string to copy
+     */
+    static void setClipboard(String str) {
+	try {
+	    clipboard.setContents(new StringSelection(str), null);
+	} catch (IllegalStateException ex) {
+	    System.err.println("Can't set clipboard, sorry!");
+	}
+    }
+
+    /**
+     * Assure there is only one action listener on tratIcon
+     *
+     * @param newListener to switch
+     */
+    static void switchTrayIconActionListenerTo(ActionListener newListener) {
+	if (trayIconActionListener != null) {
+	    trayIcon.removeActionListener(trayIconActionListener);
+	}
+	trayIconActionListener = newListener;
+	trayIcon.addActionListener(trayIconActionListener);
     }
 
     /**
