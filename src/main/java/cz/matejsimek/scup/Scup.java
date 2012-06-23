@@ -1,15 +1,12 @@
 package cz.matejsimek.scup;
 
 import java.awt.AWTException;
-import java.awt.CheckboxMenuItem;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.MenuItem;
 import java.awt.Point;
-import java.awt.PopupMenu;
 import java.awt.Rectangle;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
@@ -38,9 +35,12 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
 import javax.imageio.ImageIO;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JPopupMenu;
 import javax.swing.UIManager;
 
 /**
@@ -57,7 +57,7 @@ public class Scup {
     final static int VERSION = 2;
     //
     public static Clipboard clipboard;
-    public static TrayIcon trayIcon;
+    public static JXTrayIcon trayIcon;
     public static Point virtualOrigin;
     public static Dimension virtualSize;
     private static Preferences prefs;
@@ -99,8 +99,8 @@ public class Scup {
     /**
      * Tray Popup menu items
      */
-    private static final CheckboxMenuItem uploadEnabledCheckBox = new CheckboxMenuItem("Upload to FTP");
-    private static final CheckboxMenuItem monitorAllCheckBox = new CheckboxMenuItem("Monitor all");
+    private static JCheckBoxMenuItem uploadEnabledCheckBox;
+    private static JCheckBoxMenuItem monitorAllCheckBox;
     private static ActionListener trayIconActionListener = null;
 
     /**
@@ -148,7 +148,6 @@ public class Scup {
 
 	try {
 	    final URI projectURL = new URI("https://github.com/enzy/Scup");
-	    //final URL url = new URL("http://localhost/Scup/version.txt");
 	    final URL url = new URL("https://raw.github.com/enzy/Scup/master/version.txt");
 	    BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
 
@@ -245,8 +244,9 @@ public class Scup {
 	    }
 	    // Load tray icon
 	    try {
-		trayIcon = new TrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")), "Scup v0.1");
-		// @TODO enable trayIcon.setImageAutoSize(true); after some real test
+		trayIcon = new JXTrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")));
+		trayIcon.setToolTip("Scup v0.1");
+		trayIcon.setImageAutoSize(true);
 	    } catch (IOException ex) {
 		System.err.println("IOException: TrayIcon could not be added.");
 		System.exit(1);
@@ -259,20 +259,22 @@ public class Scup {
 		System.exit(1);
 	    }
 	    // Build popup menu showed on trayicon right click (on Windows)
-	    PopupMenu popup = new PopupMenu();
+	    final JPopupMenu jpopup = new JPopupMenu();
 
-	    MenuItem exitItem = new MenuItem("Exit");
-	    MenuItem settingsItem = new MenuItem("Settings...");
-	    MenuItem historyItem = new MenuItem("History...");
+	    JMenuItem settingsItem = new JMenuItem("Settings...");
+	    uploadEnabledCheckBox = new JCheckBoxMenuItem("Upload to FTP");
+	    monitorAllCheckBox = new JCheckBoxMenuItem("Monitor all");
+	    JMenuItem historyItem = new JMenuItem("History...");
+	    JMenuItem exitItem = new JMenuItem("Exit");
 
-	    popup.add(settingsItem);
-	    popup.add(uploadEnabledCheckBox);
-	    popup.add(monitorAllCheckBox);
-	    popup.addSeparator();
-	    popup.add(historyItem);
-	    popup.add(exitItem);
+	    jpopup.add(settingsItem);
+	    jpopup.add(uploadEnabledCheckBox);
+	    jpopup.add(monitorAllCheckBox);
+	    jpopup.addSeparator();
+	    jpopup.add(historyItem);
+	    jpopup.add(exitItem);
 	    // Add popup to tray
-	    trayIcon.setPopupMenu(popup);
+	    trayIcon.setJPopupMenu(jpopup);
 	    // Set default flags
 	    uploadEnabledCheckBox.setState(UPLOAD);
 	    monitorAllCheckBox.setState(MONITOR_ALL);
