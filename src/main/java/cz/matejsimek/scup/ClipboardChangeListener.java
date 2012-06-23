@@ -34,7 +34,8 @@ public class ClipboardChangeListener implements FlavorListener {
     /**
      *
      * @param clipboard Data source
-     * @param virtualSize Dimension of virtual desktop needed to decide from what source image is
+     * @param virtualSize Dimension of virtual desktop needed to decide from
+     * what source image is
      * @param monitorAll Capture images from all sources, not only printscreen
      */
     public ClipboardChangeListener(Clipboard clipboard, Dimension virtualSize) {
@@ -44,6 +45,7 @@ public class ClipboardChangeListener implements FlavorListener {
 
     /**
      * Clipboard change event handler
+     *
      * @param e FlavorEvent
      */
     @Override
@@ -102,23 +104,24 @@ public class ClipboardChangeListener implements FlavorListener {
 		}
 
 	    }
-	    if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
-		// Files detected in clipboard, lets capture them!
-		List<File> files = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
-		this.clearClipboard();
-		Scup.processFiles(files);
-	    }
+//	    if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
+//		// Files detected in clipboard, lets capture them!
+//		List<File> files = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
+//		this.clearClipboard();
+//		Scup.processFiles(files);
+//	    }
 
+	} catch (IllegalStateException ex) {
+	    ex.printStackTrace();
 	} catch (Exception ex) {
 	    ex.printStackTrace();
 	    clearClipboard();
 	}
-
-	System.gc();
     }
 
     /**
-     * Strong clipboard cleaning needed for change detection to work, otherwise flavorsChanged is not called
+     * Strong clipboard cleaning needed for change detection to work, otherwise
+     * flavorsChanged is not called
      */
     public void clearClipboard() {
 	System.out.println("Clearing clipboard...");
