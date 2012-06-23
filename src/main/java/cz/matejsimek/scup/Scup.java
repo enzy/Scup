@@ -17,6 +17,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -167,8 +169,7 @@ public class Scup {
 		    Object obj = pane.getValue();
 		    // Open browser on project page on yes and close program
 		    if (obj != null && !obj.equals(JOptionPane.UNINITIALIZED_VALUE) && (Integer) obj == 0) {
-			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-			    Desktop.getDesktop().browse(projectURL);
+			if (openBrowserOn(projectURL)) {
 			    System.exit(0);
 			}
 		    }
@@ -183,8 +184,44 @@ public class Scup {
 	    System.err.println("Check for updates failed.");
 	    ex.printStackTrace();
 	}
+    }
 
+    /**
+     * Open default system browser on given URI
+     *
+     * @param uri
+     * @return true if operation was successful
+     */
+    static private boolean openBrowserOn(URI uri) {
+	if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+	    try {
+		Desktop.getDesktop().browse(uri);
+		return true;
+	    } catch (Exception ex) {
+		System.err.println("Error while opening browser");
+		ex.printStackTrace();
+	    }
+	}
+	return false;
+    }
 
+    /**
+     * Open given file with default associated program
+     *
+     * @param filepath
+     * @return
+     */
+    static private boolean openOnFile(String filepath) {
+	if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+	    try {
+		Desktop.getDesktop().open(new File(filepath));
+		return true;
+	    } catch (Exception ex) {
+		System.err.println("Error while opening file with associated program");
+		ex.printStackTrace();
+	    }
+	}
+	return false;
     }
 
     /**
@@ -278,6 +315,7 @@ public class Scup {
 	    // Set default flags
 	    uploadEnabledCheckBox.setState(UPLOAD);
 	    monitorAllCheckBox.setState(MONITOR_ALL);
+	    historySubmenu.setEnabled(false);
 
 	    // Add listener to settingsItem.
 	    settingsItem.addActionListener(new ActionListener() {
@@ -401,7 +439,7 @@ public class Scup {
 		    }
 		});
 		// Save it to history
-		addImageToHistory(image, url);
+		addImageToHistory(image, url, false);
 	    } else {
 		// Upload failed, it happens
 		System.err.println("Upload failed");
@@ -431,7 +469,7 @@ public class Scup {
 	    });
 
 	    // Save it to history
-	    addImageToHistory(image, imageAbsolutePath);
+	    addImageToHistory(image, imageAbsolutePath, true);
 	}
 
 	image.flush();
@@ -446,7 +484,7 @@ public class Scup {
      * @param image
      * @param path
      */
-    static private void addImageToHistory(BufferedImage image, final String path) {
+    static private void addImageToHistory(BufferedImage image, final String path, final boolean isLocalFile) {
 	BufferedImage scaled;
 	// Resize image to usable dimensions
 	if (image.getWidth() > 140 || image.getHeight() > 80) {
@@ -462,8 +500,27 @@ public class Scup {
 		setClipboard(path);
 	    }
 	});
+
+	// Open browser/program on CTRL+click
+	item.addMouseListener(new MouseAdapter() {
+	    @Override
+	    public void mouseReleased(MouseEvent e) {
+		if (e.isControlDown()) {
+		    if (isLocalFile) {
+			openOnFile(path);
+		    } else {
+			openBrowserOn(URI.create(path));
+		    }
+		}
+	    }
+	});
 	// Finally add item to submenu
 	historySubmenu.add(item);
+	historySubmenu.setEnabled(true);
+	// Clean old items
+	if(historySubmenu.getItemCount() > 5){
+	    historySubmenu.remove(0);
+	}
     }
 
     /**
