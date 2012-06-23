@@ -244,7 +244,7 @@ public class Scup {
 	    // Load tray icon
 	    try {
 		trayIcon = new JXTrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")));
-		trayIcon.setToolTip("Scup v0.1");
+		trayIcon.setToolTip("Scup v" + VERSION);
 		trayIcon.setImageAutoSize(true);
 	    } catch (IOException ex) {
 		System.err.println("IOException: TrayIcon could not be added.");
