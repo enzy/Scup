@@ -29,19 +29,21 @@ import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
 import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.UIManager;
+import org.imgscalr.Scalr;
 
 /**
  * Scup - Simple screenshot & file uploader <p>Easily upload screenshot or files
@@ -65,10 +67,6 @@ public class Scup {
      * 16x16 app icon
      */
     public static BufferedImage iconImage = null;
-    /**
-     * History of latest grabs (images, files, etc.)
-     */
-    public static ArrayList<String> lastGrabs = new ArrayList<String>();
     /**
      * User configuration keys
      */
@@ -101,6 +99,7 @@ public class Scup {
      */
     private static JCheckBoxMenuItem uploadEnabledCheckBox;
     private static JCheckBoxMenuItem monitorAllCheckBox;
+    private static JMenu historySubmenu;
     private static ActionListener trayIconActionListener = null;
 
     /**
@@ -264,14 +263,15 @@ public class Scup {
 	    JMenuItem settingsItem = new JMenuItem("Settings...");
 	    uploadEnabledCheckBox = new JCheckBoxMenuItem("Upload to FTP");
 	    monitorAllCheckBox = new JCheckBoxMenuItem("Monitor all");
-	    JMenuItem historyItem = new JMenuItem("History...");
+	    historySubmenu = new JMenu("History");
 	    JMenuItem exitItem = new JMenuItem("Exit");
 
 	    jpopup.add(settingsItem);
 	    jpopup.add(uploadEnabledCheckBox);
 	    jpopup.add(monitorAllCheckBox);
 	    jpopup.addSeparator();
-	    jpopup.add(historyItem);
+	    jpopup.add(historySubmenu);
+	    jpopup.addSeparator();
 	    jpopup.add(exitItem);
 	    // Add popup to tray
 	    trayIcon.setJPopupMenu(jpopup);
@@ -312,14 +312,6 @@ public class Scup {
 		}
 	    });
 
-	    // Add listener to historyItem.
-	    historyItem.addActionListener(new ActionListener() {
-		public void actionPerformed(ActionEvent e) {
-		    new HistoryFrame().setVisible(true);
-		}
-	    });
-
-
 	    // Add listener to exitItem.
 	    exitItem.addActionListener(new ActionListener() {
 		public void actionPerformed(ActionEvent e) {
@@ -327,7 +319,6 @@ public class Scup {
 		    System.exit(0);
 		}
 	    });
-
 
 	    trayIcon.displayMessage("Scup", "I am here to serve", TrayIcon.MessageType.NONE);
 	} else {
@@ -381,8 +372,6 @@ public class Scup {
 	}
 
 	File imageFile = saveImageToFile(image);
-	image.flush();
-	image = null;
 
 	if (UPLOAD) {
 	    // Transer image to FTP
@@ -412,7 +401,7 @@ public class Scup {
 		    }
 		});
 		// Save it to history
-		lastGrabs.add(url);
+		addImageToHistory(image, url);
 	    } else {
 		// Upload failed, it happens
 		System.err.println("Upload failed");
@@ -442,10 +431,39 @@ public class Scup {
 	    });
 
 	    // Save it to history
-	    lastGrabs.add(imageAbsolutePath);
+	    addImageToHistory(image, imageAbsolutePath);
 	}
 
+	image.flush();
+	image = null;
 	imageFile = null;
+	System.gc();
+    }
+
+    /**
+     * Adds image into history submenu
+     *
+     * @param image
+     * @param path
+     */
+    static private void addImageToHistory(BufferedImage image, final String path) {
+	BufferedImage scaled;
+	// Resize image to usable dimensions
+	if (image.getWidth() > 140 || image.getHeight() > 80) {
+	    scaled = Scalr.resize(image, 140, 80);
+	} else {
+	    scaled = image;
+	}
+	// Rape JMenuItem with big image
+	JMenuItem item = new JMenuItem(path, new ImageIcon(scaled));
+	// Copy path on click
+	item.addActionListener(new ActionListener() {
+	    public void actionPerformed(ActionEvent e) {
+		setClipboard(path);
+	    }
+	});
+	// Finally add item to submenu
+	historySubmenu.add(item);
     }
 
     /**
