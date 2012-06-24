@@ -1,7 +1,7 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>C:\Work\Scup\dist\Scup-1.jar</jar>
+  <jar>C:\Work\Scup\dist\Scup.jar</jar>
   <outfile>C:\Work\Scup\dist\Scup.exe</outfile>
   <errTitle>Scup</errTitle>
   <cmdLine></cmdLine>
@@ -19,7 +19,7 @@
   </singleInstance>
   <jre>
     <path></path>
-    <minVersion>1.5.0</minVersion>
+    <minVersion>1.6.0</minVersion>
     <maxVersion></maxVersion>
     <jdkPreference>jreOnly</jdkPreference>
     <opt>-Djava.net.preferIPv4Stack=true</opt>

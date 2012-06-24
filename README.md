@@ -14,9 +14,9 @@
 ## How to run Scup ##
 
 * Check that you have [Java JRE installed](http://java.com/en/download/installed.jsp?detect=jre&try=1)
-* Download [Scup.exe](https://github.com/enzy/Scup/raw/master/dist/Scup.exe) or [Scup-1.jar](https://github.com/enzy/Scup/raw/master/dist/Scup-1.jar)
+* Download [Scup.exe](https://github.com/enzy/Scup/raw/master/dist/Scup.exe) or [Scup.jar](https://github.com/enzy/Scup/raw/master/dist/Scup.jar)
 * On Windows simple run `Scup.exe`
-* On other platforms run `java -jar Scup-1.jar` or double click on .jar file.
+* On other platforms run `java -jar Scup.jar` or double click on .jar file.
 
 ## Support and contribution ##
 
