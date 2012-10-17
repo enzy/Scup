@@ -11,7 +11,7 @@
   <supportUrl>https://github.com/enzy/Scup</supportUrl>
   <customProcName>true</customProcName>
   <stayAlive>false</stayAlive>
-  <manifest></manifest>
+  <manifest>C:\Work\Scup\tools\launch4j\Scup.exe.manifest</manifest>
   <icon>C:\Work\Scup\resources\icon.ico</icon>
   <singleInstance>
     <mutexName>cz.matejsimek.scup</mutexName>
