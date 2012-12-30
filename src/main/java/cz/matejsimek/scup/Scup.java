@@ -58,7 +58,7 @@ public class Scup {
     /**
      * Simple new version checking with incremental number
      */
-    final static int VERSION = 2;
+    final static int VERSION = 3;
     //
     public static Clipboard clipboard;
     public static JXTrayIcon trayIcon;
@@ -127,7 +127,8 @@ public class Scup {
 	detectVirtualDimensions();
 	// Get system clipboard and asign event handler to it
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-	clipboard.addFlavorListener(new ClipboardChangeListener(clipboard, virtualSize));
+	ClipboardChangeListener cl = new ClipboardChangeListener(clipboard, virtualSize);
+	cl.start();
 	// Force users to download new version
 	checkForUpdates();
 	// Show configuration form on startup until first save
