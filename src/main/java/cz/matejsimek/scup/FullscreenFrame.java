@@ -26,22 +26,23 @@ import javax.swing.KeyStroke;
  */
 public class FullscreenFrame extends JFrame {
 
-    private CountDownLatch run;
-    private BufferedImage image;
-    private int imageWidth, imageHeight;
-    private Point startPoint = new Point();
-    private Point endPoint = new Point();
-    private Point oldPoint = new Point();
-    private Rectangle selectedRectangle = new Rectangle();
-    private Rectangle areaRectangle;
-    private boolean isCropped = false;
+  private CountDownLatch run;
+  private BufferedImage image;
+  private int imageWidth, imageHeight;
+  private Point startPoint = new Point();
+  private Point endPoint = new Point();
+  private Point oldPoint = new Point();
+  private Rectangle selectedRectangle = new Rectangle();
+  private Rectangle areaRectangle;
+  private boolean isCropped = false;
 
-    /**
-     * Initialize frame
-     * @param run for block calling Thread until frame is finished
-     * @param image image to display and crop
-     */
-    public FullscreenFrame(CountDownLatch run, BufferedImage image) {
+  /**
+   * Initialize frame
+   *
+   * @param run for block calling Thread until frame is finished
+   * @param image image to display and crop
+   */
+  public FullscreenFrame(CountDownLatch run, BufferedImage image) {
 	this.run = run;
 	this.image = image;
 	imageWidth = image.getWidth();
@@ -56,113 +57,116 @@ public class FullscreenFrame extends JFrame {
 
 	// Detect mouse events (for crop area)
 	addMouseListener(new MouseAdapter() {
-	    public void mousePressed(MouseEvent e) {
+	  public void mousePressed(MouseEvent e) {
 		startPoint = endPoint = oldPoint = e.getPoint();
 		repaint();
-	    }
+	  }
 
-	    public void mouseReleased(MouseEvent e) {
+	  public void mouseReleased(MouseEvent e) {
 		crop();
 		setVisible(false);
-	    }
+	  }
 	});
 	addMouseMotionListener(new MouseMotionAdapter() {
-	    public void mouseDragged(MouseEvent e) {
+	  public void mouseDragged(MouseEvent e) {
 		// Move with whole rectangle with CTRL key
 		if (e.isControlDown()) {
-		    int xmove = oldPoint.x - e.getPoint().x;
-		    int ymove = oldPoint.y - e.getPoint().y;
-		    startPoint.x -= xmove;
-		    startPoint.y -= ymove;
-		    endPoint.x -= xmove;
-		    endPoint.y -= ymove;
+		  int xmove = oldPoint.x - e.getPoint().x;
+		  int ymove = oldPoint.y - e.getPoint().y;
+		  startPoint.x -= xmove;
+		  startPoint.y -= ymove;
+		  endPoint.x -= xmove;
+		  endPoint.y -= ymove;
 
-		    oldPoint = e.getPoint();
+		  oldPoint = e.getPoint();
 		} // Move with endpoint
 		else {
-		    endPoint = e.getPoint();
-		    oldPoint = endPoint;
+		  endPoint = e.getPoint();
+		  oldPoint = endPoint;
 		}
 		repaint();
-	    }
+	  }
 	});
 
 	// Close the frame when the user presses escape
 	KeyStroke escapeKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0, false);
 	Action escapeAction = new AbstractAction() {
-	    @Override
-	    public void actionPerformed(ActionEvent e) {
+	  @Override
+	  public void actionPerformed(ActionEvent e) {
 		setVisible(false);
-	    }
+	  }
 	};
 	getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(escapeKeyStroke, "ESCAPE");
 	getRootPane().getActionMap().put("ESCAPE", escapeAction);
 
 	setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-    }
+  }
 
-    /**
-     *
-     * @return cropped or original image
-     */
-    public BufferedImage getCroppedImage() {
+  /**
+   *
+   * @return cropped or original image
+   */
+  public BufferedImage getCroppedImage() {
 	return image;
-    }
+  }
 
-    /**
-     * Paint image, yellow window border and user selected area
-     * @param g Graphics
-     */
-    @Override
-    public void paint(Graphics g) {
+  /**
+   * Paint image, yellow window border and user selected area
+   *
+   * @param g Graphics
+   */
+  @Override
+  public void paint(Graphics g) {
 	Graphics2D g2d = (Graphics2D) g;
 
 	g2d.drawImage(image, null, 0, 0);
 
 	if (startPoint.x != endPoint.x || startPoint.y != endPoint.y) {
-	    int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
-	    int y1 = (startPoint.y < endPoint.y) ? startPoint.y : endPoint.y;
-	    int x2 = (startPoint.x > endPoint.x) ? startPoint.x : endPoint.x;
-	    int y2 = (startPoint.y > endPoint.y) ? startPoint.y : endPoint.y;
-	    selectedRectangle.x = x1;
-	    selectedRectangle.y = y1;
-	    selectedRectangle.width = (x2 - x1) + 1;
-	    selectedRectangle.height = (y2 - y1) + 1;
-	    g2d.draw(selectedRectangle);
+	  int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
+	  int y1 = (startPoint.y < endPoint.y) ? startPoint.y : endPoint.y;
+	  int x2 = (startPoint.x > endPoint.x) ? startPoint.x : endPoint.x;
+	  int y2 = (startPoint.y > endPoint.y) ? startPoint.y : endPoint.y;
+	  selectedRectangle.x = x1;
+	  selectedRectangle.y = y1;
+	  selectedRectangle.width = (x2 - x1) + 1;
+	  selectedRectangle.height = (y2 - y1) + 1;
+	  g2d.draw(selectedRectangle);
 	}
 
 	g2d.setColor(Color.YELLOW);
 	g2d.draw(areaRectangle);
-    }
+  }
 
-    /**
-     * Behavior like <code>{@link JFrame}.setVisible(boolean b)</code>, but with onhide CountDownLatch release
-     *
-     * @param b if false unblock CountDownLatch and hide itself
-     */
-    @Override
-    public void setVisible(boolean b) {
+  /**
+   * Behavior like
+   * <code>{@link JFrame}.setVisible(boolean b)</code>, but with onhide
+   * CountDownLatch release
+   *
+   * @param b if false unblock CountDownLatch and hide itself
+   */
+  @Override
+  public void setVisible(boolean b) {
 	super.setVisible(b);
 
-	if(!b){
-	    run.countDown();
+	if (!b) {
+	  run.countDown();
 	}
-    }
+  }
 
-    /**
-     *
-     * @return true if user already cropped image
-     */
-    public boolean isImageCropped() {
+  /**
+   *
+   * @return true if user already cropped image
+   */
+  public boolean isImageCropped() {
 	return isCropped;
-    }
+  }
 
-    /**
-     * Crop image from startPoint to endPoint and set flag isCropped
-     */
-    public void crop() {
+  /**
+   * Crop image from startPoint to endPoint and set flag isCropped
+   */
+  public void crop() {
 	if (startPoint.equals(endPoint)) {
-	    setVisible(false);
+	  setVisible(false);
 	}
 
 	int x1 = (startPoint.x < endPoint.x) ? startPoint.x : endPoint.x;
@@ -177,5 +181,5 @@ public class FullscreenFrame extends JFrame {
 	image = image.getSubimage(x1, y1, width, height);
 
 	isCropped = true;
-    }
+  }
 }
