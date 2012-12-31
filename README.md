@@ -5,10 +5,11 @@
 ## Current features ##
 
 * Run in system tray
-* Monitor system clipboard for changes (mostly Print Screen event) with image content
-* Crop image
-* Upload cropped image to FTP (or save to disk)
-* Copy image URL to clipboard
+* Monitor system clipboard for changes of image or file content (Print Screen, file copy, etc.)
+* Compress multiple files into single .zip
+* Crop image with rectangular selection
+* Upload files to FTP (or save to disk)
+* Copy file URL to clipboard
 * Check for updates on start
 
 ## How to run Scup ##
@@ -32,7 +33,7 @@ Also fork this repository whenever you like, code some changes and create pull r
 
 * Cannot connect to FTP server on Windows, [explanation on stackoverflow](http://stackoverflow.com/questions/6990663/java-7-prevents-ftp-transfers-on-windows-vista-and-7-if-firewall-is-on-any-idea)
  * Local solution: `netsh advfirewall set global StatefulFTP disable`
- * JVM solution: `-Djava.net.preferIPv4Stack=true`
+ * JVM solution: `-Djava.net.preferIPv4Stack=true` (used in .exe wrapper)
 * Big memory consumption (needs optimalization)
 
 ## License ##

@@ -57,7 +57,9 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
   }
 
   /**
-   * Whenever clipboard content is changed by other program, steal it back and process new data
+   * Whenever clipboard content is changed by other program, steal it back and
+   * process new data
+   *
    * @param clipboard
    * @param t
    */
@@ -86,6 +88,7 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
 
   /**
    * Steal ownership of clipboard by writing same data
+   *
    * @param contents Actual clipboard data
    */
   void regainOwnership(Transferable contents) {
@@ -94,6 +97,7 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
 
   /**
    * Decide what to do with clipboard content and invoke Scup static methods
+   *
    * @param contents Clipboard data
    */
   public void processContents(Transferable contents) {
@@ -148,9 +152,11 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
 		}
 
 	  } else if (contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-		// Files detected in clipboard, lets capture them!
-		List<File> files = (List<File>) contents.getTransferData(DataFlavor.javaFileListFlavor);
-		Scup.processFiles(files);
+		if (Scup.MONITOR_ALL) {
+		  // Files detected in clipboard, lets capture them!
+		  List<File> files = (List<File>) contents.getTransferData(DataFlavor.javaFileListFlavor);
+		  Scup.processFiles(files);
+		}
 	  }
 
 	} catch (IllegalStateException ex) {

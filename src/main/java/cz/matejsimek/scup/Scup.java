@@ -24,6 +24,7 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -31,10 +32,15 @@ import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Formatter;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.prefs.Preferences;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
@@ -522,6 +528,10 @@ public class Scup {
 	if (historySubmenu.getItemCount() > 5) {
 	  historySubmenu.remove(0);
 	}
+
+	scaled.flush();
+	scaled = null;
+	System.gc();
   }
 
   /**
@@ -586,16 +596,137 @@ public class Scup {
   }
 
   /**
-   * @TODO, actually only prints file list
+   * File handling process - upload single file in original format or multiple files in one zip archive
+   * <pre>
+   * There is 4 situations, which can occur:
+   * - single file, no upload - only absolute path to file is copied to clipboard
+   * - single file, upload - file is uploaded to FTP server and named after its SHA hash, URL copied to clipboard
+   * - multiple files, no upload - files are compressed into single archive named by actual date and located in running directory, absolute path copied to clipboard
+   * - multiple files, upload - files are compressed into single archive and then uploaded to FTP server, file named by its SHA hash, URL copied to clipboard
+   * </pre>
    *
-   * @param files
+   * @param files List of files to process
    */
   static void processFiles(List<File> files) {
 	System.out.println("Processing files...");
-	for (int i = 0; i < files.size(); i++) {
-	  System.out.println("File " + i + ": " + files.get(i).getName());
+
+	File fileToProcess;
+	String extension;
+	boolean isZip = false;
+
+	if (files.size() > 1) {
+	  fileToProcess = zipFiles(files);
+	  extension = ".zip";
+	  isZip = true;
+	} else {
+	  fileToProcess = files.get(0);
+	  String filename = fileToProcess.getName();
+	  System.out.println("Processing file: " + filename);
+
+	  int pos = filename.lastIndexOf(".");
+	  extension = filename.substring(pos);
 	}
-	System.err.println("Not supported feature yet, stay tuned!");
+
+	final String fileUrl;
+
+	if (UPLOAD) {
+	  String hash = generateHashForFile(fileToProcess);
+	  String newFilename = hash.substring(0, 10) + extension;
+
+	  // Transer file to FTP
+	  System.out.println("Uploading file to FTP server...");
+	  // FTP file upload service
+	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
+	  if (fileupload.uploadFile(fileToProcess, newFilename)) {
+		System.out.println("Upload done");
+		// Generate URL
+		fileUrl = (URL.endsWith("/") ? URL : URL + "/") + newFilename;
+		System.out.println(fileUrl);
+		// Clean after myself
+		if (isZip) {
+		  fileToProcess.delete();
+		}
+	  } else {
+		// Upload failed, it happens
+		System.err.println("Upload failed");
+		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
+		return;
+	  }
+
+	} else {
+	  fileUrl = fileToProcess.getAbsolutePath();
+	}
+
+	// Copy URL to clipboard
+	try {
+	  clipboard.setContents(new StringSelection(fileUrl), null);
+	} catch (IllegalStateException e) {
+	  System.err.println("Can't set clipboard, sorry!");
+	}
+	// Notify user about it
+	System.out.println("File " + (UPLOAD ? "uploaded " : "located ") + fileUrl);
+	trayIcon.displayMessage("File " + (UPLOAD ? "uploaded" : "located"), fileUrl, TrayIcon.MessageType.INFO);
+
+	// Display last processed file
+	switchTrayIconActionListenerTo(new ActionListener() {
+	  public void actionPerformed(ActionEvent e) {
+		System.out.println("Last file path " + fileUrl);
+		trayIcon.displayMessage("Last file path", fileUrl, TrayIcon.MessageType.INFO);
+		setClipboard(fileUrl);
+	  }
+	});
+
+	// Save it to history
+	BufferedImage ico = new BufferedImage(1, 1, BufferedImage.TYPE_3BYTE_BGR);
+	try {
+	  ico = ImageIO.read(Scup.class.getResource("/" + (isZip ? "package" : "page") + ".png"));
+	} catch (Exception ex) {
+	  ex.printStackTrace();
+	}
+	addImageToHistory(ico, fileUrl, true);
+
+  }
+
+  /**
+   * Zip given files into one archive
+   *
+   * @param files Input files to compress
+   * @return Zip file named in format yyyyMMdd-HHmmss.zip
+   */
+  static File zipFiles(List<File> files) {
+	DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
+	File outputFile = new File(dateFormat.format(Calendar.getInstance().getTime()) + ".zip");
+
+	try {
+	  ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outputFile));
+	  byte[] buf = new byte[1024];
+
+	  for (File file : files) {
+		System.out.println("Compressing file: " + file.getName());
+		FileInputStream fis = null;
+
+		try {
+		  fis = new FileInputStream(file);
+		  zos.putNextEntry(new ZipEntry(file.getName()));
+		  int len;
+		  while ((len = fis.read(buf)) > 0) {
+			zos.write(buf, 0, len);
+		  }
+		  zos.closeEntry();
+		} catch (IOException ex) {
+		  ex.printStackTrace();
+		}
+
+		fis.close();
+	  }
+
+	  zos.close();
+
+	} catch (IOException ex) {
+	  ex.printStackTrace();
+	}
+
+	return outputFile;
   }
 
   /**
@@ -656,5 +787,39 @@ public class Scup {
 	}
 
 	return Long.toString(System.currentTimeMillis());
+  }
+
+  static String generateHashForFile(File file) {
+	FileInputStream fis = null;
+
+	try {
+	  byte[] buf = new byte[1024];
+
+	  MessageDigest md = MessageDigest.getInstance("SHA");
+
+	  fis = new FileInputStream(file);
+	  int len;
+	  while ((len = fis.read(buf)) > 0) {
+		md.update(buf, 0, len);
+	  }
+
+	  Formatter formatter = new Formatter();
+	  for (byte b : md.digest()) {
+		formatter.format("%02x", b);
+	  }
+
+	  return formatter.toString();
+
+	} catch (Exception ex) {
+	  ex.printStackTrace();
+	} finally {
+	  try {
+		fis.close();
+	  } catch (IOException ex) {
+		ex.printStackTrace();
+	  }
+	}
+
+	return null;
   }
 }
