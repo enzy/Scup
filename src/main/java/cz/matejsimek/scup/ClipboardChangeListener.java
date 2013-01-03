@@ -1,13 +1,16 @@
 package cz.matejsimek.scup;
 
+import java.awt.AWTException;
 import java.awt.Dimension;
+import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.MouseInfo;
+import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.ClipboardOwner;
 import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.StringSelection;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
@@ -17,7 +20,7 @@ import java.util.List;
  *
  * @author Matej Simek | www.matejsimek.cz
  */
-public class ClipboardChangeListener extends Thread implements ClipboardOwner {
+public class ClipboardChangeListener extends Thread {
 
   /**
    * Data source
@@ -27,16 +30,64 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
    * Dimension of virtual desktop needed to decide from what source image is
    */
   private Dimension virtualSize;
+  /**
+   * Indicates multiple display setup
+   */
+  private boolean multipleDisplays = false;
 
+  @Override
   public void run() {
+	Scup.setClipboard("");
 	System.out.println("Starting clipboard listener...");
-	Transferable trans = clipboard.getContents(this);
-	regainOwnership(trans);
+
+	BufferedImage oldImage = null;
+	List<File> oldFiles = null;
 
 	while (true) {
+
+	  try {
+		// Text in clipboard idicates free way to clear old references
+		if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
+		  if (oldImage != null) {
+			oldImage.flush();
+		  }
+		  oldImage = null;
+		  oldFiles = null;
+		} // Compare old image with new one from clipboard if its available
+		else if (clipboard.isDataFlavorAvailable(DataFlavor.imageFlavor)) {
+		  BufferedImage newImage = (BufferedImage) clipboard.getData(DataFlavor.imageFlavor);
+		  clipboard.setContents(new StringSelection(""), null);
+
+		  if (!newImage.equals(oldImage)) {
+			System.out.println("New image detected in clipboard");
+			if (oldImage != null) {
+			  oldImage.flush();
+			}
+			oldImage = newImage;
+			processImageContent(newImage);
+		  } else {
+			newImage.flush();
+			newImage = null;
+		  }
+
+		} // Compare old file list with new one from clipboard if its available
+		else if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
+		  List<File> newFiles = (List<File>) clipboard.getData(DataFlavor.javaFileListFlavor);
+		  if (!newFiles.equals(oldFiles)) {
+			System.out.println("New files detected in clipboard");
+			oldFiles = newFiles;
+			processFileContent(newFiles);
+		  } else {
+			newFiles = null;
+		  }
+		}
+	  } catch (Exception ex) {
+		ex.printStackTrace();
+	  }
+
 	  synchronized (this) {
 		try {
-		  this.wait();
+		  this.sleep(500);
 		} catch (InterruptedException ex) {
 		  ex.printStackTrace();
 		}
@@ -45,124 +96,92 @@ public class ClipboardChangeListener extends Thread implements ClipboardOwner {
   }
 
   /**
+   * Detect dimensions of virtual space and save them to
+   * <code>Dimension virtualSize</code> and
+   * <code>Point virtualOrigin</code>
+   */
+  void detectVirtualDimensions() {
+	GraphicsEnvironment ge;
+	ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+	Rectangle vBounds = new Rectangle();
+	GraphicsDevice[] gdArray = ge.getScreenDevices();
+
+	for (int i = 0; i < gdArray.length; i++) {
+	  GraphicsDevice gd = gdArray[i];
+	  GraphicsConfiguration[] gcArray = gd.getConfigurations();
+
+	  for (int j = 0; j < gcArray.length; j++) {
+		vBounds = vBounds.union(gcArray[j].getBounds());
+	  }
+	}
+	multipleDisplays = gdArray.length > 1 ? true : false;
+	virtualSize = vBounds.getSize();
+  }
+
+  /**
    *
    * @param clipboard Data source
-   * @param virtualSize Dimension of virtual desktop needed to decide from what
-   * source image is
    * @param monitorAll Capture images from all sources, not only printscreen
    */
-  public ClipboardChangeListener(Clipboard clipboard, Dimension virtualSize) {
+  public ClipboardChangeListener(Clipboard clipboard) {
 	this.clipboard = clipboard;
-	this.virtualSize = virtualSize;
   }
 
   /**
-   * Whenever clipboard content is changed by other program, steal it back and
-   * process new data
+   * Basic image content handling - determinates image source and
    *
-   * @param clipboard
-   * @param t
+   * @param image
    */
-  public void lostOwnership(Clipboard clipboard, Transferable t) {
-	this.clipboard = clipboard;
+  public void processImageContent(BufferedImage image) {
+	GraphicsDevice currentDevice = MouseInfo.getPointerInfo().getDevice();
+	detectVirtualDimensions();
 
-	try {
-	  this.sleep(200);
-	} catch (Exception e) {
-	  e.printStackTrace();
-	}
-	try {
-	  Transferable contents = clipboard.getContents(this);
-	  regainOwnership(contents);
-	  processContents(contents);
-	} catch (IllegalStateException e) {
-	  System.out.println("Cannot gain acces to clipboard, trying again...");
-	  try {
-		this.sleep(100);
-		lostOwnership(clipboard, t);
-	  } catch (Exception ex) {
-		ex.printStackTrace();
+	// Decide from what source is image in clipboard based on its dimensions
+	if (image.getWidth() < virtualSize.width || image.getHeight() < virtualSize.height) {
+	  // Custom source
+	  if (Scup.MONITOR_ALL) {
+		Scup.processImage(image, false, currentDevice);
+	  } else {
+		System.out.println("Skipping image, Monitor all is disabled.");
 	  }
-	}
-  }
+	  image.flush();
+	  image = null;
 
-  /**
-   * Steal ownership of clipboard by writing same data
-   *
-   * @param contents Actual clipboard data
-   */
-  void regainOwnership(Transferable contents) {
-	clipboard.setContents(contents, this);
-  }
-
-  /**
-   * Decide what to do with clipboard content and invoke Scup static methods
-   *
-   * @param contents Clipboard data
-   */
-  public void processContents(Transferable contents) {
-
-	try {
-	  if (contents.isDataFlavorSupported(DataFlavor.imageFlavor)) {
-		// Image detected in clipboard, lets capture it!
-		final BufferedImage image = (BufferedImage) contents.getTransferData(DataFlavor.imageFlavor);
-		final BufferedImage newImage;
-		final GraphicsDevice currentDevice = MouseInfo.getPointerInfo().getDevice();
-
-		// Decide from what source is image in clipboard on its dimensions
-		if (image.getWidth() < virtualSize.width || image.getHeight() < virtualSize.height) {
-		  // Custom source
-		  if (Scup.MONITOR_ALL) {
-			// Current thread is EDT, start another for image processing
-			Thread t = new Thread(new Runnable() {
-			  @Override
-			  public void run() {
-				Scup.processImage(image, false, currentDevice);
-				// Try to release all image resources
-				image.getGraphics().dispose();
-				image.flush();
-				System.gc();
-			  }
-			});
-			t.start();
-		  } else {
-			// Try to release all image resources
-			image.getGraphics().dispose();
-			image.flush();
-			System.gc();
-		  }
-		} else {
+	} else {
+	  if (multipleDisplays) {
+		try {
+		  image.flush();
+		  image = null;
 		  // Full print screen in clipboard, make screen again but only for active device
 		  Robot robot = new Robot();
-		  newImage = robot.createScreenCapture(currentDevice.getDefaultConfiguration().getBounds());
-		  // Current thread is EDT, start another for image processing
-		  Thread t = new Thread(new Runnable() {
-			@Override
-			public void run() {
-			  Scup.processImage(newImage, true, currentDevice);
-			  // Try to release all image resources
-			  newImage.getGraphics().dispose();
-			  newImage.flush();
-			  System.gc();
-			}
-		  });
-		  t.start();
-		  // Try to release all image resources
-		  image.flush();
+		  BufferedImage newImage = robot.createScreenCapture(currentDevice.getDefaultConfiguration().getBounds());
+		  Scup.processImage(newImage, true, currentDevice);
+		  newImage.flush();
+		  newImage = null;
+		} catch (AWTException ex) {
+		  ex.printStackTrace();
 		}
-
-	  } else if (contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-		if (Scup.MONITOR_ALL) {
-		  // Files detected in clipboard, lets capture them!
-		  List<File> files = (List<File>) contents.getTransferData(DataFlavor.javaFileListFlavor);
-		  Scup.processFiles(files);
-		}
+	  } else {
+		Scup.processImage(image, true, currentDevice);
+		image.flush();
+		image = null;
 	  }
+	}
 
-	} catch (IllegalStateException ex) {
-	  ex.printStackTrace();
-	} catch (Exception ex) {
-	  ex.printStackTrace();
+	System.gc();
+  }
+
+  /**
+   * Basic file content handling (only calls Scup.processFiles when
+   * Scup.MONITOR_ALL is true)
+   *
+   * @param files
+   */
+  public void processFileContent(List<File> files) {
+	if (Scup.MONITOR_ALL) {
+	  Scup.processFiles(files);
+	} else {
+	  System.out.println("Skippign files, Monitor all is disabled.");
 	}
   }
 }

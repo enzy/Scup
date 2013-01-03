@@ -3,11 +3,8 @@ package cz.matejsimek.scup;
 import java.awt.AWTException;
 import java.awt.Desktop;
 import java.awt.Dimension;
-import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
@@ -20,9 +17,7 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -129,11 +124,9 @@ public class Scup {
 	readConfiguration();
 	// Init tray icon
 	initTray();
-	// Detect virtual space
-	detectVirtualDimensions();
 	// Get system clipboard and asign event handler to it
 	clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-	ClipboardChangeListener cl = new ClipboardChangeListener(clipboard, virtualSize);
+	ClipboardChangeListener cl = new ClipboardChangeListener(clipboard);
 	cl.start();
 	// Force users to download new version
 	checkForUpdates();
@@ -231,32 +224,7 @@ public class Scup {
 	return false;
   }
 
-  /**
-   * Detect dimensions of virtual space and save them to
-   * <code>Dimension virtualSize</code> and
-   * <code>Point virtualOrigin</code>
-   */
-  static private void detectVirtualDimensions() {
-	GraphicsEnvironment ge;
-	ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-	Rectangle vBounds = new Rectangle();
-	GraphicsDevice[] gdArray = ge.getScreenDevices();
-
-	for (int i = 0; i < gdArray.length; i++) {
-	  GraphicsDevice gd = gdArray[i];
-
-	  GraphicsConfiguration[] gcArray = gd.getConfigurations();
-
-	  for (int j = 0; j < gcArray.length; j++) {
-		vBounds = vBounds.union(gcArray[j].getBounds());
-	  }
-	}
-
-	virtualOrigin = vBounds.getLocation();
-	virtualSize = vBounds.getSize();
-  }
-
-  /**
+    /**
    * Place app icon into system tray, build popupmenu and attach event handlers
    * to items
    */
@@ -429,11 +397,7 @@ public class Scup {
 		final String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
 		System.out.println(url);
 		// Copy URL to clipboard
-		try {
-		  clipboard.setContents(new StringSelection(url), null);
-		} catch (IllegalStateException e) {
-		  System.err.println("Can't set clipboard, sorry!");
-		}
+		setClipboard(url);
 		// Notify me about it
 		trayIcon.displayMessage("Image uploaded", url, TrayIcon.MessageType.INFO);
 
@@ -457,11 +421,7 @@ public class Scup {
 	} else {
 	  // Copy URL to clipboard
 	  final String imageAbsolutePath = imageFile.getAbsolutePath();
-	  try {
-		clipboard.setContents(new StringSelection(imageAbsolutePath), null);
-	  } catch (IllegalStateException e) {
-		System.err.println("Can't set clipboard, sorry!");
-	  }
+	  setClipboard(imageAbsolutePath);
 	  // Notify user about it
 	  System.out.println("Image saved " + imageAbsolutePath);
 	  trayIcon.displayMessage("Image saved", imageAbsolutePath, TrayIcon.MessageType.INFO);
@@ -478,11 +438,6 @@ public class Scup {
 	  // Save it to history
 	  addImageToHistory(image, imageAbsolutePath, true);
 	}
-
-	image.flush();
-	image = null;
-	imageFile = null;
-	System.gc();
   }
 
   /**
@@ -499,6 +454,7 @@ public class Scup {
 	} else {
 	  scaled = image;
 	}
+
 	// Rape JMenuItem with big image
 	JMenuItem item = new JMenuItem(path, new ImageIcon(scaled));
 	// Copy path on click
@@ -528,10 +484,7 @@ public class Scup {
 	if (historySubmenu.getItemCount() > 5) {
 	  historySubmenu.remove(0);
 	}
-
 	scaled.flush();
-	scaled = null;
-	System.gc();
   }
 
   /**
@@ -543,7 +496,14 @@ public class Scup {
 	try {
 	  clipboard.setContents(new StringSelection(str), null);
 	} catch (IllegalStateException ex) {
-	  System.err.println("Can't set clipboard, sorry!");
+	  System.err.println("Can't set clipboard, trying again!");
+	  ex.printStackTrace();
+	  try {
+		Thread.sleep(250);
+	  } catch (InterruptedException ex1) {
+		ex1.printStackTrace();
+	  }
+	  setClipboard(str);
 	}
   }
 
@@ -586,11 +546,15 @@ public class Scup {
 
 	// When its closed, get cropped image
 	if (fullscreenFrame.isImageCropped()) {
+	  image.flush();
 	  image = fullscreenFrame.getCroppedImage();
 	} else {
+	  image.flush();
 	  image = null;
 	}
+	fullscreenFrame.setVisible(false);
 	fullscreenFrame.dispose();
+	fullscreenFrame = null;
 
 	return image;
   }
@@ -658,11 +622,8 @@ public class Scup {
 	}
 
 	// Copy URL to clipboard
-	try {
-	  clipboard.setContents(new StringSelection(fileUrl), null);
-	} catch (IllegalStateException e) {
-	  System.err.println("Can't set clipboard, sorry!");
-	}
+	setClipboard(fileUrl);
+
 	// Notify user about it
 	System.out.println("File " + (UPLOAD ? "uploaded " : "located ") + fileUrl);
 	trayIcon.displayMessage("File " + (UPLOAD ? "uploaded" : "located"), fileUrl, TrayIcon.MessageType.INFO);
@@ -698,7 +659,8 @@ public class Scup {
 	File outputFile = new File(dateFormat.format(Calendar.getInstance().getTime()) + ".zip");
 
 	try {
-	  ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outputFile));
+	  FileOutputStream fos = new FileOutputStream(outputFile);
+	  ZipOutputStream zos = new ZipOutputStream(fos);
 	  byte[] buf = new byte[1024];
 
 	  for (File file : files) {
@@ -721,6 +683,7 @@ public class Scup {
 	  }
 
 	  zos.close();
+	  fos.close();
 
 	} catch (IOException ex) {
 	  ex.printStackTrace();
@@ -737,26 +700,19 @@ public class Scup {
    */
   static File saveImageToFile(BufferedImage img) {
 	try {
-	  ByteArrayOutputStream baos = new ByteArrayOutputStream();
-	  BufferedOutputStream bos = new BufferedOutputStream(baos);
-	  ImageIO.write(img, "png", bos);
-	  // Calculate hash for filename and cut hash to smaller size
-	  String hash = generateHash(baos.toByteArray());
-	  String filename = hash.substring(0, 10);
-	  // Close streams
-	  bos.flush();
-	  bos.close();
-	  baos.close();
+	  // Generate default image name
+	  DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
+	  File outputFile = new File(dateFormat.format(Calendar.getInstance().getTime()) + ".png");
+	  // Write image data
+	  ImageIO.write(img, "png", outputFile);
+	  // Calculate image hash
+	  String hash = generateHashForFile(outputFile);
+	  String newFilename = hash.substring(0, 10) + ".png";
+	  // Rename file after its hash
+	  File renamedFile = new File(newFilename);
+	  outputFile.renameTo(renamedFile);
 
-	  //
-	  System.out.println("Saving image: " + filename + ".png");
-	  File outputfile = new File(filename + ".png");
-	  BufferedOutputStream bos2 = new BufferedOutputStream(new FileOutputStream(outputfile));
-	  ImageIO.write(img, "png", bos2);
-	  bos2.flush();
-	  bos2.close();
-
-	  return outputfile;
+	  return renamedFile;
 
 	} catch (IOException ex) {
 	  System.err.println("Can't write image to file!");
@@ -807,6 +763,8 @@ public class Scup {
 	  for (byte b : md.digest()) {
 		formatter.format("%02x", b);
 	  }
+
+	  fis.close();
 
 	  return formatter.toString();
 
