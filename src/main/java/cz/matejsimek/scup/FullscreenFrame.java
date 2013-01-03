@@ -178,7 +178,10 @@ public class FullscreenFrame extends JFrame {
 	int width = (x2 - x1) + 1;
 	int height = (y2 - y1) + 1;
 
-	image = image.getSubimage(x1, y1, width, height);
+	BufferedImage croppedImage = image.getSubimage(x1, y1, width, height);
+	image.flush();
+	image = croppedImage;
+	croppedImage = null;
 
 	isCropped = true;
   }
