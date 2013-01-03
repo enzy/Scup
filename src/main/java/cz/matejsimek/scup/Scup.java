@@ -387,6 +387,14 @@ public class Scup {
 	File imageFile = saveImageToFile(image);
 
 	if (UPLOAD) {
+	  // Calculate image hash
+	  String hash = generateHashForFile(imageFile);
+	  String newFilename = hash.substring(0, 10) + ".png";
+	  // Rename file after its hash
+	  File renamedFile = new File(newFilename);
+	  if(imageFile.renameTo(renamedFile)){
+		imageFile = renamedFile;
+	  }
 	  // Transer image to FTP
 	  System.out.println("Uploading image to FTP server...");
 	  // FTP file upload service
@@ -705,14 +713,8 @@ public class Scup {
 	  File outputFile = new File(dateFormat.format(Calendar.getInstance().getTime()) + ".png");
 	  // Write image data
 	  ImageIO.write(img, "png", outputFile);
-	  // Calculate image hash
-	  String hash = generateHashForFile(outputFile);
-	  String newFilename = hash.substring(0, 10) + ".png";
-	  // Rename file after its hash
-	  File renamedFile = new File(newFilename);
-	  outputFile.renameTo(renamedFile);
 
-	  return renamedFile;
+	  return outputFile;
 
 	} catch (IOException ex) {
 	  System.err.println("Can't write image to file!");
