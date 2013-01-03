@@ -2,9 +2,7 @@ package cz.matejsimek.scup;
 
 import java.awt.AWTException;
 import java.awt.Desktop;
-import java.awt.Dimension;
 import java.awt.GraphicsDevice;
-import java.awt.Point;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
@@ -26,7 +24,6 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -63,8 +60,6 @@ public class Scup {
   //
   public static Clipboard clipboard;
   public static JXTrayIcon trayIcon;
-  public static Point virtualOrigin;
-  public static Dimension virtualSize;
   private static Preferences prefs;
   /**
    * 16x16 app icon
@@ -723,30 +718,11 @@ public class Scup {
   }
 
   /**
-   * Generate SHA has from given data
+   * Generate SHA hash for given file
    *
-   * @param data Array of bytes to calculate hash from
-   * @return SHA hash from data or currentTimeMillis in case of error
+   * @param file to calculate
+   * @return Hash in hexadecimal format
    */
-  static String generateHash(byte[] data) {
-	try {
-	  MessageDigest md = MessageDigest.getInstance("SHA");
-	  md.update(data);
-
-	  Formatter formatter = new Formatter();
-	  for (byte b : md.digest()) {
-		formatter.format("%02x", b);
-	  }
-
-	  return formatter.toString();
-
-	} catch (NoSuchAlgorithmException ex) {
-	  System.err.println("Can't load digest algorithm!");
-	}
-
-	return Long.toString(System.currentTimeMillis());
-  }
-
   static String generateHashForFile(File file) {
 	FileInputStream fis = null;
 
