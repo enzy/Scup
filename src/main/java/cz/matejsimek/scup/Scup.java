@@ -219,6 +219,18 @@ public class Scup {
 	return false;
   }
 
+  /**
+   * Sets tray icon tooltip text, sets default if text is empty
+   * @param text
+   */
+  static void setTrayTooltip(String text){
+	if(text.isEmpty()){
+	  trayIcon.setToolTip("Scup v" + VERSION);
+	} else{
+	  trayIcon.setToolTip(text);
+	}
+  }
+
     /**
    * Place app icon into system tray, build popupmenu and attach event handlers
    * to items
@@ -251,7 +263,7 @@ public class Scup {
 	  // Load tray icon
 	  try {
 		trayIcon = new JXTrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")));
-		trayIcon.setToolTip("Scup v" + VERSION);
+		setTrayTooltip("");
 		trayIcon.setImageAutoSize(true);
 	  } catch (IOException ex) {
 		System.err.println("IOException: TrayIcon could not be added.");
@@ -392,10 +404,12 @@ public class Scup {
 	  }
 	  // Transer image to FTP
 	  System.out.println("Uploading image to FTP server...");
+	  setTrayTooltip("Uploading image " + imageFile.getName());
 	  // FTP file upload service
 	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
 	  if (fileupload.uploadFile(imageFile, imageFile.getName())) {
 		System.out.println("Upload done");
+		setTrayTooltip("");
 		// Generate URL
 		final String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
 		System.out.println(url);
@@ -417,6 +431,7 @@ public class Scup {
 	  } else {
 		// Upload failed, it happens
 		System.err.println("Upload failed");
+		setTrayTooltip("");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
 	  }
 	  // Don't keep copy of already uploaded image
@@ -599,13 +614,14 @@ public class Scup {
 	if (UPLOAD) {
 	  String hash = generateHashForFile(fileToProcess);
 	  String newFilename = hash.substring(0, 10) + extension;
-
 	  // Transer file to FTP
 	  System.out.println("Uploading file to FTP server...");
+	  setTrayTooltip("Uploading file " + newFilename);
 	  // FTP file upload service
 	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
 	  if (fileupload.uploadFile(fileToProcess, newFilename)) {
 		System.out.println("Upload done");
+		setTrayTooltip("");
 		// Generate URL
 		fileUrl = (URL.endsWith("/") ? URL : URL + "/") + newFilename;
 		System.out.println(fileUrl);
@@ -616,6 +632,7 @@ public class Scup {
 	  } else {
 		// Upload failed, it happens
 		System.err.println("Upload failed");
+		setTrayTooltip("");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
 		return;
 	  }
