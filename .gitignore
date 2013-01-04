@@ -6,6 +6,7 @@ target/*
 *.jar
 *.war
 *.ear
+!lib/*.jar
 !dist/*.jar
 
 # Netbeans ignore personal stuff
@@ -18,3 +19,5 @@ nbproject/private/
 *.swp
 *.out
 config.properties
+
+build/*

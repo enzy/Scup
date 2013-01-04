@@ -110,7 +110,7 @@ public class Scup {
 	// Set system windows theme and load default icon
 	try {
 	  UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-	  iconImage = ImageIO.read(Scup.class.getResource("/icon.png"));
+	  iconImage = ImageIO.read(Scup.class.getResource("resources/icon.png"));
 	} catch (Exception ex) {
 	  ex.printStackTrace();
 	}
@@ -262,7 +262,7 @@ public class Scup {
 	  }
 	  // Load tray icon
 	  try {
-		trayIcon = new JXTrayIcon(ImageIO.read(Scup.class.getResource("/icon" + icoVersion + ".png")));
+		trayIcon = new JXTrayIcon(ImageIO.read(Scup.class.getResource("resources/icon" + icoVersion + ".png")));
 		setTrayTooltip("");
 		trayIcon.setImageAutoSize(true);
 	  } catch (IOException ex) {
@@ -660,7 +660,7 @@ public class Scup {
 	// Save it to history
 	BufferedImage ico = new BufferedImage(1, 1, BufferedImage.TYPE_3BYTE_BGR);
 	try {
-	  ico = ImageIO.read(Scup.class.getResource("/" + (isZip ? "package" : "page") + ".png"));
+	  ico = ImageIO.read(Scup.class.getResource("resources/" + (isZip ? "package" : "page") + ".png"));
 	} catch (Exception ex) {
 	  ex.printStackTrace();
 	}
