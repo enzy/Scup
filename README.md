@@ -1,6 +1,6 @@
 # Scup - Simple screenshot & file uploader
 
-*Easily upload screenshot or files to FTP server and copy its URL address to clipboard.*
+*Easily upload screenshot or files to server and copy its URL address to clipboard.*
 
 ## Current features ##
 
@@ -8,7 +8,7 @@
 * Monitor system clipboard for changes of image or file content (Print Screen, file copy, etc.)
 * Compress multiple files into single .zip
 * Crop image with rectangular selection
-* Upload files to FTP (or save to disk)
+* Upload files to: FTP, Dropbox or save to disk
 * Copy file URL to clipboard
 * Check for updates on start
 

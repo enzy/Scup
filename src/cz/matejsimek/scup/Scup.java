@@ -74,12 +74,15 @@ public class Scup {
   public final static String KEY_DIRECTORY = "FTP_DIRECTORY";
   public final static String KEY_URL = "URL";
   public final static String KEY_UPLOAD = "UPLOAD";
+  public final static String KEY_UPLOAD_METHOD = "UPLOAD_METHOD";
   public final static String KEY_MONITOR_ALL = "MONITOR_ALL";
   public final static String KEY_INITIAL_SETTINGS = "INITIAL_SETTINGS";
+  public final static String KEY_DROPBOX_KEY = "DROPBOX_KEY";
+  public final static String KEY_DROPBOX_SECRET = "DROPBOX_SECRET";
   /**
    * FTP configuration variables
    */
-  private static String FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY, URL;
+  private static String FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY, URL, UPLOAD_METHOD, DROPBOX_KEY, DROPBOX_SECRET;
   /**
    * Flag which enable upload to FTP server
    */
@@ -221,17 +224,18 @@ public class Scup {
 
   /**
    * Sets tray icon tooltip text, sets default if text is empty
+   *
    * @param text
    */
-  static void setTrayTooltip(String text){
-	if(text.isEmpty()){
+  static void setTrayTooltip(String text) {
+	if (text.isEmpty()) {
 	  trayIcon.setToolTip("Scup v" + VERSION);
-	} else{
+	} else {
 	  trayIcon.setToolTip(text);
 	}
   }
 
-    /**
+  /**
    * Place app icon into system tray, build popupmenu and attach event handlers
    * to items
    */
@@ -280,7 +284,7 @@ public class Scup {
 	  final JPopupMenu jpopup = new JPopupMenu();
 
 	  JMenuItem settingsItem = new JMenuItem("Settings...");
-	  uploadEnabledCheckBox = new JCheckBoxMenuItem("Upload to FTP");
+	  uploadEnabledCheckBox = new JCheckBoxMenuItem("Upload to server");
 	  monitorAllCheckBox = new JCheckBoxMenuItem("Monitor all");
 	  historySubmenu = new JMenu("History");
 	  JMenuItem exitItem = new JMenuItem("Exit");
@@ -361,14 +365,56 @@ public class Scup {
 	FTP_DIRECTORY = prefs.get(KEY_DIRECTORY, "");
 	URL = prefs.get(KEY_URL, "http://localhost");
 	UPLOAD = prefs.getBoolean(KEY_UPLOAD, false);
+	UPLOAD_METHOD = prefs.get(KEY_UPLOAD_METHOD, "FTP");
 	MONITOR_ALL = prefs.getBoolean(KEY_MONITOR_ALL, true);
 	INITIAL_SETTINGS = prefs.getBoolean(KEY_INITIAL_SETTINGS, true);
+	DROPBOX_KEY = prefs.get(KEY_DROPBOX_KEY, "");
+	DROPBOX_SECRET = prefs.get(KEY_DROPBOX_SECRET, "");
   }
 
   public static void reloadConfiguration() {
 	readConfiguration();
 	uploadEnabledCheckBox.setState(UPLOAD);
 	monitorAllCheckBox.setState(MONITOR_ALL);
+  }
+
+  /**
+   * Handle uploading of any given file to chosen service (FTP, DROPBOX)
+   *
+   * @param file file to upload
+   * @param remoteFilename remote filename
+   * @return URL of uploaded file
+   */
+  static String uploadFile(File file, String remoteFilename) {
+	setTrayTooltip("Uploading " + remoteFilename + " to " + UPLOAD_METHOD);
+	System.out.println("Uploading file to " + UPLOAD_METHOD + " server...");
+
+	String url = null;
+
+	if ("FTP".equals(UPLOAD_METHOD)) {
+	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
+	  boolean status = fileupload.uploadFile(file, remoteFilename);
+	  if (status) {
+		url = (URL.endsWith("/") ? URL : URL + "/") + remoteFilename;
+	  }
+	} else if ("DROPBOX".equals(UPLOAD_METHOD)) {
+	  try {
+		DropboxUpload du = new DropboxUpload(DROPBOX_KEY, DROPBOX_SECRET);
+		url = du.uploadFile(file, remoteFilename);
+		// Save authentication tokens for next time
+		DROPBOX_KEY = du.getKey();
+		DROPBOX_SECRET = du.getSecret();
+		prefs.put(KEY_DROPBOX_KEY, DROPBOX_KEY);
+		prefs.put(KEY_DROPBOX_SECRET, DROPBOX_SECRET);
+
+	  } catch (Exception ex) {
+		trayIcon.displayMessage("Dropbox error", ex.getLocalizedMessage(), TrayIcon.MessageType.ERROR);
+		ex.printStackTrace();
+	  }
+	}
+
+	setTrayTooltip("");
+	return url;
   }
 
   /**
@@ -392,6 +438,7 @@ public class Scup {
 	}
 
 	File imageFile = saveImageToFile(image);
+	final String imageUrl;
 
 	if (UPLOAD) {
 	  // Calculate image hash
@@ -399,63 +446,40 @@ public class Scup {
 	  String newFilename = hash.substring(0, 10) + ".png";
 	  // Rename file after its hash
 	  File renamedFile = new File(newFilename);
-	  if(imageFile.renameTo(renamedFile)){
-		imageFile = renamedFile;
-	  }
+	  imageFile = imageFile.renameTo(renamedFile) ? renamedFile : imageFile;
 	  // Transer image to FTP
-	  System.out.println("Uploading image to FTP server...");
-	  setTrayTooltip("Uploading image " + imageFile.getName());
-	  // FTP file upload service
-	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
-	  if (fileupload.uploadFile(imageFile, imageFile.getName())) {
-		System.out.println("Upload done");
-		setTrayTooltip("");
-		// Generate URL
-		final String url = (URL.endsWith("/") ? URL : URL + "/") + imageFile.getName();
-		System.out.println(url);
-		// Copy URL to clipboard
-		setClipboard(url);
-		// Notify me about it
-		trayIcon.displayMessage("Image uploaded", url, TrayIcon.MessageType.INFO);
-
-		// Display last uploaded image
-		switchTrayIconActionListenerTo(new ActionListener() {
-		  public void actionPerformed(ActionEvent e) {
-			System.out.println("Last image URL " + url);
-			trayIcon.displayMessage("Last image URL", url, TrayIcon.MessageType.INFO);
-			setClipboard(url);
-		  }
-		});
-		// Save it to history
-		addImageToHistory(image, url, false);
-	  } else {
+	  imageUrl = uploadFile(imageFile, imageFile.getName());
+	  if (imageUrl == null) {
 		// Upload failed, it happens
-		System.err.println("Upload failed");
-		setTrayTooltip("");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
+		System.err.println("Upload failed");
+		return;
+	  } else {
+		// Don't keep copy of already uploaded image
+		imageFile.delete();
 	  }
-	  // Don't keep copy of already uploaded image
-	  imageFile.delete();
-	} else {
-	  // Copy URL to clipboard
-	  final String imageAbsolutePath = imageFile.getAbsolutePath();
-	  setClipboard(imageAbsolutePath);
-	  // Notify user about it
-	  System.out.println("Image saved " + imageAbsolutePath);
-	  trayIcon.displayMessage("Image saved", imageAbsolutePath, TrayIcon.MessageType.INFO);
 
-	  // Display last uploaded image
-	  switchTrayIconActionListenerTo(new ActionListener() {
-		public void actionPerformed(ActionEvent e) {
-		  System.out.println("Last image path " + imageAbsolutePath);
-		  trayIcon.displayMessage("Last image path", imageAbsolutePath, TrayIcon.MessageType.INFO);
-		  setClipboard(imageAbsolutePath);
-		}
-	  });
-
-	  // Save it to history
-	  addImageToHistory(image, imageAbsolutePath, true);
+	} // Copy local absolute path only when upload is disabled
+	else {
+	  imageUrl = imageFile.getAbsolutePath();
 	}
+	// Copy URL to clipboard
+	setClipboard(imageUrl);
+	// Notify user about it
+	trayIcon.displayMessage("Image " + (UPLOAD ? "uploaded" : "saved"), imageUrl, TrayIcon.MessageType.INFO);
+	System.out.println("Image " + (UPLOAD ? "uploaded " : "saved ") + imageUrl);
+
+	// Display last uploaded image
+	switchTrayIconActionListenerTo(new ActionListener() {
+	  public void actionPerformed(ActionEvent e) {
+		setClipboard(imageUrl);
+		trayIcon.displayMessage("Last image " + (UPLOAD ? "URL" : "path"), imageUrl, TrayIcon.MessageType.INFO);
+		System.out.println("Last image " + (UPLOAD ? "URL" : "path") + imageUrl);
+	  }
+	});
+
+	// Save it to history
+	addImageToHistory(image, imageUrl, true);
   }
 
   /**
@@ -478,7 +502,7 @@ public class Scup {
 	// Copy path on click
 	item.addActionListener(new ActionListener() {
 	  public void actionPerformed(ActionEvent e) {
-		setClipboard(path);
+		Scup.setClipboard(path);
 	  }
 	});
 
@@ -488,9 +512,9 @@ public class Scup {
 	  public void mouseReleased(MouseEvent e) {
 		if (e.isControlDown()) {
 		  if (isLocalFile) {
-			openOnFile(path);
+			Scup.openOnFile(path);
 		  } else {
-			openBrowserOn(URI.create(path));
+			Scup.openBrowserOn(URI.create(path));
 		  }
 		}
 	  }
@@ -578,7 +602,8 @@ public class Scup {
   }
 
   /**
-   * File handling process - upload single file in original format or multiple files in one zip archive
+   * File handling process - upload single file in original format or multiple
+   * files in one zip archive
    * <pre>
    * There is 4 situations, which can occur:
    * - single file, no upload - only absolute path to file is copied to clipboard
@@ -596,17 +621,19 @@ public class Scup {
 	String extension;
 	boolean isZip = false;
 
+	// Compress files into archive
 	if (files.size() > 1) {
 	  fileToProcess = zipFiles(files);
 	  extension = ".zip";
 	  isZip = true;
-	} else {
+	} // Keep single file in original format
+	else {
 	  fileToProcess = files.get(0);
 	  String filename = fileToProcess.getName();
 	  System.out.println("Processing file: " + filename);
-
+	  // Determinate file extension
 	  int pos = filename.lastIndexOf(".");
-	  extension = filename.substring(pos);
+	  extension = (pos >= 0) ? filename.substring(pos) : "";
 	}
 
 	final String fileUrl;
@@ -615,45 +642,34 @@ public class Scup {
 	  String hash = generateHashForFile(fileToProcess);
 	  String newFilename = hash.substring(0, 10) + extension;
 	  // Transer file to FTP
-	  System.out.println("Uploading file to FTP server...");
-	  setTrayTooltip("Uploading file " + newFilename);
-	  // FTP file upload service
-	  FileUpload fileupload = new FileUpload(FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DIRECTORY);
-	  if (fileupload.uploadFile(fileToProcess, newFilename)) {
-		System.out.println("Upload done");
-		setTrayTooltip("");
-		// Generate URL
-		fileUrl = (URL.endsWith("/") ? URL : URL + "/") + newFilename;
-		System.out.println(fileUrl);
-		// Clean after myself
-		if (isZip) {
-		  fileToProcess.delete();
-		}
-	  } else {
+	  fileUrl = uploadFile(fileToProcess, newFilename);
+	  if (fileUrl == null) {
 		// Upload failed, it happens
-		System.err.println("Upload failed");
-		setTrayTooltip("");
 		trayIcon.displayMessage("Upload failed", "I can not serve, sorry", TrayIcon.MessageType.ERROR);
+		System.err.println("Upload failed");
 		return;
+	  } else if (isZip) {
+		// Upload succeeded, now clean after myself
+		fileToProcess.delete();
 	  }
 
-	} else {
+	} // Copy local absolute path only when upload is disabled
+	else {
 	  fileUrl = fileToProcess.getAbsolutePath();
 	}
 
 	// Copy URL to clipboard
 	setClipboard(fileUrl);
-
 	// Notify user about it
-	System.out.println("File " + (UPLOAD ? "uploaded " : "located ") + fileUrl);
 	trayIcon.displayMessage("File " + (UPLOAD ? "uploaded" : "located"), fileUrl, TrayIcon.MessageType.INFO);
+	System.out.println("File " + (UPLOAD ? "uploaded " : "located ") + fileUrl);
 
 	// Display last processed file
 	switchTrayIconActionListenerTo(new ActionListener() {
 	  public void actionPerformed(ActionEvent e) {
-		System.out.println("Last file path " + fileUrl);
-		trayIcon.displayMessage("Last file path", fileUrl, TrayIcon.MessageType.INFO);
 		setClipboard(fileUrl);
+		trayIcon.displayMessage("Last file " + (UPLOAD ? "URL" : "path"), fileUrl, TrayIcon.MessageType.INFO);
+		System.out.println("Last file " + (UPLOAD ? "URL" : "path") + fileUrl);
 	  }
 	});
 

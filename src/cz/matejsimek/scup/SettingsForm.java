@@ -16,6 +16,7 @@ import javax.swing.UIManager;
 public class SettingsForm extends javax.swing.JFrame {
 
   private Preferences prefs;
+  private String uploadMethod;
 
   /**
    * Creates new form SettingsForm
@@ -40,11 +41,45 @@ public class SettingsForm extends javax.swing.JFrame {
 	urlText.setText(prefs.get(Scup.KEY_URL, "http://localhost"));
 	uploadCheckBox.setSelected(prefs.getBoolean(Scup.KEY_UPLOAD, false));
 	monitorAllCheckBox.setSelected(prefs.getBoolean(Scup.KEY_MONITOR_ALL, true));
+	uploadMethod = prefs.get(Scup.KEY_UPLOAD_METHOD, "FTP");
 
 	this.pack();
 
 	// Set default state
 	uploadCheckBoxActionPerformed(new ActionEvent(this, 0, null));
+  }
+
+  private void switchRemoteServer(String method) {
+	System.out.println("Switching server to " + method);
+	uploadMethod = method;
+
+	if (uploadMethod.equals("FTP")) {
+	  ftpToggle.setSelected(true);
+	  dropboxToggle.setSelected(false);
+	  if(uploadCheckBox.isSelected()){
+		setEnabledFTPPanel(true);
+	  } else {
+		setEnabledFTPPanel(false);
+	  }
+	} else if (uploadMethod.equals("DROPBOX")) {
+	  ftpToggle.setSelected(false);
+	  dropboxToggle.setSelected(true);
+	  setEnabledFTPPanel(false);
+	}
+  }
+
+  private void setEnabledFTPPanel(boolean state) {
+	FTPConnectionPanel.setEnabled(state);
+	directoryText.setEnabled(state);
+	passwordField.setEnabled(state);
+	serverText.setEnabled(state);
+	urlText.setEnabled(state);
+	usernameText.setEnabled(state);
+	directoryLabel.setEnabled(state);
+	passwordLabel.setEnabled(state);
+	serverLabel.setEnabled(state);
+	urlLabel.setEnabled(state);
+	usernameLabel.setEnabled(state);
   }
 
   /**
@@ -56,6 +91,7 @@ public class SettingsForm extends javax.swing.JFrame {
   // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
   private void initComponents() {
 
+    remoteServerGroup = new javax.swing.ButtonGroup();
     FTPConnectionPanel = new javax.swing.JPanel();
     serverLabel = new javax.swing.JLabel();
     usernameLabel = new javax.swing.JLabel();
@@ -73,6 +109,8 @@ public class SettingsForm extends javax.swing.JFrame {
     cancelButton = new javax.swing.JButton();
     saveButton = new javax.swing.JButton();
     jSeparator1 = new javax.swing.JSeparator();
+    ftpToggle = new javax.swing.JToggleButton();
+    dropboxToggle = new javax.swing.JToggleButton();
 
     setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
     setTitle("Scup - Settings");
@@ -148,8 +186,8 @@ public class SettingsForm extends javax.swing.JFrame {
         .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
     );
 
-    uploadCheckBox.setText("Upload to FTP Server, otherwise save to disk");
-    uploadCheckBox.setToolTipText("");
+    uploadCheckBox.setText("Upload to");
+    uploadCheckBox.setToolTipText("Upload to chosen server, otherwise save to disk");
     uploadCheckBox.addActionListener(new java.awt.event.ActionListener() {
       public void actionPerformed(java.awt.event.ActionEvent evt) {
         uploadCheckBoxActionPerformed(evt);
@@ -193,6 +231,23 @@ public class SettingsForm extends javax.swing.JFrame {
         .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
     );
 
+    remoteServerGroup.add(ftpToggle);
+    ftpToggle.setSelected(true);
+    ftpToggle.setText("FTP");
+    ftpToggle.addActionListener(new java.awt.event.ActionListener() {
+      public void actionPerformed(java.awt.event.ActionEvent evt) {
+        ftpToggleActionPerformed(evt);
+      }
+    });
+
+    remoteServerGroup.add(dropboxToggle);
+    dropboxToggle.setText("Dropbox");
+    dropboxToggle.addActionListener(new java.awt.event.ActionListener() {
+      public void actionPerformed(java.awt.event.ActionEvent evt) {
+        dropboxToggleActionPerformed(evt);
+      }
+    });
+
     javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
     getContentPane().setLayout(layout);
     layout.setHorizontalGroup(
@@ -204,16 +259,24 @@ public class SettingsForm extends javax.swing.JFrame {
           .addComponent(FTPConnectionPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
           .addGroup(layout.createSequentialGroup()
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-              .addComponent(uploadCheckBox)
-              .addComponent(monitorAllCheckBox))
-            .addGap(0, 254, Short.MAX_VALUE)))
+              .addComponent(monitorAllCheckBox)
+              .addGroup(layout.createSequentialGroup()
+                .addComponent(uploadCheckBox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(ftpToggle)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(dropboxToggle)))
+            .addGap(0, 292, Short.MAX_VALUE)))
         .addContainerGap())
     );
     layout.setVerticalGroup(
       layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
       .addGroup(layout.createSequentialGroup()
         .addContainerGap()
-        .addComponent(uploadCheckBox)
+        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+          .addComponent(uploadCheckBox)
+          .addComponent(ftpToggle)
+          .addComponent(dropboxToggle))
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
         .addComponent(FTPConnectionPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -227,6 +290,7 @@ public class SettingsForm extends javax.swing.JFrame {
   }// </editor-fold>//GEN-END:initComponents
 
     private void saveButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveButtonActionPerformed
+	  prefs.put(Scup.KEY_UPLOAD_METHOD, uploadMethod);
 	  prefs.put(Scup.KEY_FTP_SERVER, serverText.getText());
 	  prefs.put(Scup.KEY_FTP_USERNAME, usernameText.getText());
 	  prefs.put(Scup.KEY_FTP_PASSWORD, passwordField.getText());
@@ -241,36 +305,23 @@ public class SettingsForm extends javax.swing.JFrame {
     }//GEN-LAST:event_saveButtonActionPerformed
 
     private void uploadCheckBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadCheckBoxActionPerformed
-	  if (uploadCheckBox.isSelected()) {
-		FTPConnectionPanel.setEnabled(true);
-		directoryText.setEnabled(true);
-		passwordField.setEnabled(true);
-		serverText.setEnabled(true);
-		urlText.setEnabled(true);
-		usernameText.setEnabled(true);
-		directoryLabel.setEnabled(true);
-		passwordLabel.setEnabled(true);
-		serverLabel.setEnabled(true);
-		urlLabel.setEnabled(true);
-		usernameLabel.setEnabled(true);
-	  } else {
-		FTPConnectionPanel.setEnabled(false);
-		directoryText.setEnabled(false);
-		passwordField.setEnabled(false);
-		serverText.setEnabled(false);
-		urlText.setEnabled(false);
-		usernameText.setEnabled(false);
-		directoryLabel.setEnabled(false);
-		passwordLabel.setEnabled(false);
-		serverLabel.setEnabled(false);
-		urlLabel.setEnabled(false);
-		usernameLabel.setEnabled(false);
-	  }
+	  boolean state = uploadCheckBox.isSelected();
+	  ftpToggle.setEnabled(state);
+	  dropboxToggle.setEnabled(state);
+	  switchRemoteServer(uploadMethod);
     }//GEN-LAST:event_uploadCheckBoxActionPerformed
 
     private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed
 	  dispose();
     }//GEN-LAST:event_cancelButtonActionPerformed
+
+  private void ftpToggleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ftpToggleActionPerformed
+	switchRemoteServer("FTP");
+  }//GEN-LAST:event_ftpToggleActionPerformed
+
+  private void dropboxToggleActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_dropboxToggleActionPerformed
+	switchRemoteServer("DROPBOX");
+  }//GEN-LAST:event_dropboxToggleActionPerformed
 
   /**
    * @param args the command line arguments
@@ -293,11 +344,14 @@ public class SettingsForm extends javax.swing.JFrame {
   private javax.swing.JButton cancelButton;
   private javax.swing.JLabel directoryLabel;
   private javax.swing.JTextField directoryText;
+  private javax.swing.JToggleButton dropboxToggle;
+  private javax.swing.JToggleButton ftpToggle;
   private javax.swing.JPanel jPanel1;
   private javax.swing.JSeparator jSeparator1;
   private javax.swing.JCheckBox monitorAllCheckBox;
   private javax.swing.JPasswordField passwordField;
   private javax.swing.JLabel passwordLabel;
+  private javax.swing.ButtonGroup remoteServerGroup;
   private javax.swing.JButton saveButton;
   private javax.swing.JLabel serverLabel;
   private javax.swing.JTextField serverText;
