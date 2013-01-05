@@ -59,7 +59,7 @@ public class Scup {
   /**
    * Simple new version checking with incremental number
    */
-  final static int VERSION = 4;
+  final static int VERSION = 5;
   //
   public static Clipboard clipboard;
   public static JXTrayIcon trayIcon;
