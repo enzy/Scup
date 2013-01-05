@@ -67,7 +67,7 @@ public class Scup {
   /**
    * 16x16 app icon
    */
-  public static BufferedImage iconImage = null;
+  public static BufferedImage iconImage = null, iconImageUpload = null;
   /**
    * User configuration keys
    */
@@ -117,6 +117,7 @@ public class Scup {
 	try {
 	  UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 	  iconImage = ImageIO.read(Scup.class.getResource("resources/icon.png"));
+	  iconImageUpload = ImageIO.read(Scup.class.getResource("resources/iconupload.png"));
 	} catch (Exception ex) {
 	  ex.printStackTrace();
 	}
@@ -389,6 +390,10 @@ public class Scup {
    * @return URL of uploaded file
    */
   static String uploadFile(File file, String remoteFilename) {
+	// Change tray icon image
+	Image oldIcon = trayIcon.getImage();
+	trayIcon.setImage(iconImageUpload);
+	// Inform about upload
 	setTrayTooltip("Uploading " + remoteFilename + " to " + UPLOAD_METHOD);
 	System.out.println("Uploading file to " + UPLOAD_METHOD + " server...");
 
@@ -415,8 +420,11 @@ public class Scup {
 		ex.printStackTrace();
 	  }
 	}
-
+	// Revert back tray changes
+	trayIcon.setImage(oldIcon);
+	oldIcon.flush();
 	setTrayTooltip("");
+	// Return URL or null
 	return url;
   }
 
