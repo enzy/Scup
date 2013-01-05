@@ -2,7 +2,10 @@ package cz.matejsimek.scup;
 
 import java.awt.AWTException;
 import java.awt.Desktop;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
+import java.awt.Image;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
 import java.awt.TrayIcon;
@@ -190,7 +193,7 @@ public class Scup {
    * @param uri
    * @return true if operation was successful
    */
-  static private boolean openBrowserOn(URI uri) {
+  static public boolean openBrowserOn(URI uri) {
 	if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
 	  try {
 		Desktop.getDesktop().browse(uri);
@@ -209,7 +212,7 @@ public class Scup {
    * @param filepath
    * @return
    */
-  static private boolean openOnFile(String filepath) {
+  static public boolean openOnFile(String filepath) {
 	if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
 	  try {
 		Desktop.getDesktop().open(new File(filepath));
@@ -479,7 +482,7 @@ public class Scup {
 	});
 
 	// Save it to history
-	addImageToHistory(image, imageUrl, true);
+	addImageToHistory(image, imageUrl, !UPLOAD);
   }
 
   /**
@@ -488,7 +491,7 @@ public class Scup {
    * @param image
    * @param path
    */
-  static private void addImageToHistory(BufferedImage image, final String path, final boolean isLocalFile) {
+  static private void addImageToHistory(BufferedImage image, final String path, boolean isLocalFile) {
 	BufferedImage scaled;
 	// Resize image to usable dimensions
 	if (image.getWidth() > 140 || image.getHeight() > 80) {
@@ -507,18 +510,7 @@ public class Scup {
 	});
 
 	// Open browser/program on CTRL+click
-	item.addMouseListener(new MouseAdapter() {
-	  @Override
-	  public void mouseReleased(MouseEvent e) {
-		if (e.isControlDown()) {
-		  if (isLocalFile) {
-			Scup.openOnFile(path);
-		  } else {
-			Scup.openBrowserOn(URI.create(path));
-		  }
-		}
-	  }
-	});
+	item.addMouseListener(new OpenFileMouseAdapter(path, isLocalFile));
 	// Finally add item to submenu
 	historySubmenu.add(item);
 	historySubmenu.setEnabled(true);
@@ -680,7 +672,7 @@ public class Scup {
 	} catch (Exception ex) {
 	  ex.printStackTrace();
 	}
-	addImageToHistory(ico, fileUrl, true);
+	addImageToHistory(ico, fileUrl, !UPLOAD);
 
   }
 
