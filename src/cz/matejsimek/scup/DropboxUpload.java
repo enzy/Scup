@@ -14,7 +14,6 @@ import java.awt.Desktop;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -48,7 +47,7 @@ public class DropboxUpload {
 
 	try {
 	  Desktop.getDesktop().browse(new URL(url).toURI());
-	} catch (URISyntaxException | IOException ex) {
+	} catch (Exception ex) {
 	  ex.printStackTrace();
 	}
 
@@ -65,7 +64,7 @@ public class DropboxUpload {
 	this.user_secret = tokens.secret;
 
 	// Start Dropbox session
-	mDBApi = new DropboxAPI<>(session);
+	mDBApi = new DropboxAPI<WebAuthSession>(session);
   }
 
   /**
@@ -104,7 +103,7 @@ public class DropboxUpload {
 	else {
 	  session.setAccessTokenPair(new AccessTokenPair(key, secret));
 	  // Start Dropbox session
-	  mDBApi = new DropboxAPI<>(session);
+	  mDBApi = new DropboxAPI<WebAuthSession>(session);
 	}
   }
 
@@ -135,7 +134,7 @@ public class DropboxUpload {
 		ex.printStackTrace();
 	  }
 	} // And many other errors we may ignore
-	catch (DropboxException | IOException ex) {
+	catch (Exception ex) {
 	  ex.printStackTrace();
 	}
 	// Close file strem
