@@ -28,6 +28,7 @@ Also fork this repository whenever you like, code some changes and create pull r
 
 [![Donate this project](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=J2XC575WFNHA4&lc=US&item_name=Scup%20%2d%20Simple%20screenshot%20and%20file%20uploader&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted)
 [![Flattr this project](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=matejsimek&url=https://github.com/enzy/Scup&title=Scup&language=en_GB&tags=github&category=software&description=Scup - Simple screenshot and file uploader)
+[![Gittip](http://img.shields.io/gittip/enzy.svg)](https://www.gittip.com/enzy/)
 
 ## Known issues ##
 
